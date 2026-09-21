@@ -1,6 +1,10 @@
 # SQL-Prüfstand
 
 SQL üben an einem Gebrauchtwagen-Datensatz, der mit jeder Stufe wächst.
+Neun Stufen, je eine Einführung und acht Aufgaben, dazu ein freier Modus.
+
+Das Datenbankschema (Tabellen, Spalten, Werte) ist englisch, alle Texte
+sind deutsch.
 Postgres läuft per WebAssembly im Browser-Tab — kein Server, keine Datenbank,
 keine Kosten.
 
@@ -48,7 +52,7 @@ Alle Seiten werden zur Build-Zeit statisch erzeugt.
 
 | Datei | Zweck |
 | --- | --- |
-| `lib/migrations.ts` | Der Datensatz, in sechs Stufen. Stufe N = Migration 1…N |
+| `lib/migrations.ts` | Der Datensatz, in neun Stufen. Stufe N = Migration 1…N |
 | `lib/lektionen.ts` | Die Einführungen: Abschnitte mit Text, Beispiel-SQL und Fallen |
 | `lib/tasks.ts` | Aufgaben mit Musterlösung als SQL |
 | `lib/compare.ts` | Vergleich zweier Ergebnismengen |
@@ -104,7 +108,7 @@ das die Sorte Fehler, die erst auffällt, wenn sich jemand beschwert.
 
 Spaltenreihenfolge ist mit Absicht streng: würde man Spalten anhand ihrer
 Werte einander zuordnen, gingen vertauschte Spalten gleichen Typs
-(`name, stadt` statt `stadt, name`) als richtig durch. Stattdessen wird
+(`name, city` statt `city, name`) als richtig durch. Stattdessen wird
 positionsweise verglichen, und der Reihenfolgefehler bekommt eine eigene
 Meldung.
 
@@ -126,7 +130,7 @@ Abschnitte in `lib/lektionen.ts` anhängen:
 ```
 
 Das Beispiel-SQL läuft gegen den Datenstand **dieser Stufe**. Ein JOIN auf
-`haendler` funktioniert in Lektion 1 also nicht — die Tabelle gibt es dort
+`dealers` funktioniert in Lektion 1 also nicht — die Tabelle gibt es dort
 noch nicht.
 
 Lohnt sich: Formulier die `beobachtung` als Aufforderung („Lösch das HAVING

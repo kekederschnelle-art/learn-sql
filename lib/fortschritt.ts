@@ -4,7 +4,10 @@
  */
 
 const K_GELOEST = 'sql-pruefstand:geloest';
-const K_ENTWURF = 'sql-pruefstand:entwurf';
+// v4: Schema ist jetzt englisch. Alte Entwuerfe mit deutschen Spaltennamen
+// wuerden nicht mehr laufen, deshalb neuer Schluessel. Geloeste Aufgaben
+// bleiben erhalten - die haengen nur an der Aufgaben-id.
+const K_ENTWURF = 'sql-pruefstand:entwurf:v4';
 const K_GELESEN = 'sql-pruefstand:gelesen';
 
 function lies<T>(schluessel: string, fallback: T): T {

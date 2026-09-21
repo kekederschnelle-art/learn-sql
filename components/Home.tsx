@@ -45,7 +45,7 @@ export default function Home() {
         <h1>SQL-Prüfstand</h1>
         <p className="lead">
           SQL an einem Gebrauchtwagen-Marktplatz lernen. Neun Stufen, jede mit
-          einer Einführung und vier Aufgaben. Der Datensatz wächst mit: Was du auf
+          einer Einführung und acht Aufgaben. Der Datensatz wächst mit: Was du auf
           Stufe 1 gelernt hast, brauchst du auf Stufe 7 noch.
         </p>
         <p className="lead leise">
