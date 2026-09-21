@@ -41,6 +41,7 @@ export default function Home() {
 
   return (
     <div className="start">
+      <div className="start-oben">
       <header className="start-kopf">
         <h1>SQL-Prüfstand</h1>
         <p className="lead">
@@ -53,6 +54,18 @@ export default function Home() {
           kann kaputtgehen.
         </p>
       </header>
+
+      <aside className="frei-karte">
+        <h2>Freier Modus</h2>
+        <p>
+          Leerer Editor ohne Aufgabe und Prüfung. Datenstand frei wählbar, schreiben
+          erlaubt – ein Knopf baut alles wieder auf.
+        </p>
+        <Link href="/frei" className="knopf knopf-primaer">
+          Editor öffnen
+        </Link>
+      </aside>
+      </div>
 
       {geladen && (
         <div className="start-stand">
@@ -124,20 +137,6 @@ export default function Home() {
           );
         })}
       </ol>
-
-      <section className="frei-karte">
-        <div>
-          <h2>Freier Modus</h2>
-          <p>
-            Ein leerer Editor auf demselben Datensatz – ohne Aufgabe, ohne Prüfung.
-            Du wählst, welchen Datenstand du lädst, und darfst dort auch schreiben:
-            INSERT, UPDATE, CREATE TABLE, alles. Ein Knopf baut jederzeit wieder auf.
-          </p>
-        </div>
-        <Link href="/frei" className="knopf knopf-primaer">
-          Editor öffnen
-        </Link>
-      </section>
 
       {geladen && gesamtGeloest > 0 && (
         <footer className="start-fuss">
