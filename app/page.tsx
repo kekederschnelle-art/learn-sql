@@ -1,5 +1,5 @@
-import Home from '@/components/Home';
+import Landing from '@/components/Landing';
 
 export default function Seite() {
-  return <Home />;
+  return <Landing />;
 }
