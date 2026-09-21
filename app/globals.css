@@ -1083,37 +1083,57 @@ table.ergebnis td.null {
   color: var(--text);
 }
 
-/* ══════════════════════════════════════════════ V3: Karte freier Modus ══ */
+/* ═══════════════════════════════════ V4.1: freier Modus oben rechts ══ */
+
+.start-oben {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 40px;
+  align-items: start;
+}
 
 .frei-karte {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-  margin-top: 20px;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
   padding: 18px;
   border: 1px dashed var(--kante-hell);
   border-radius: var(--radius);
 }
 
 .frei-karte h2 {
-  margin: 0 0 5px;
+  margin: 0;
   font-size: 17px;
   font-weight: 600;
 }
 
 .frei-karte p {
   margin: 0;
-  max-width: 68ch;
   font-size: 13.5px;
   color: var(--gedaempft);
   line-height: 1.5;
 }
 
 .frei-karte .knopf {
-  margin-left: auto;
+  align-self: flex-start;
+  margin-top: 4px;
   text-decoration: none;
   white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .start-oben {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .frei-karte {
+    margin-top: 0;
+  }
+  .frei-karte .knopf {
+    align-self: stretch;
+    text-align: center;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1129,10 +1149,5 @@ table.ergebnis td.null {
   }
   .kopf {
     flex-wrap: wrap;
-  }
-  .frei-karte .knopf {
-    margin-left: 0;
-    width: 100%;
-    text-align: center;
   }
 }
