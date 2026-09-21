@@ -172,11 +172,10 @@ wirksam. Ohne solche Grenzfälle bestehen auch falsche Lösungen.
 
 ## Test
 
-Es gibt keinen Testlauf im Repo, aber der Selbsttest ist schnell gebaut:
-Musterlösung gegen sich selbst vergleichen (muss `korrekt` ergeben), und
-absichtlich falsche Varianten durchschicken (müssen durchfallen). Lohnt sich
-besonders für die Fälle „HAVING vergessen" und „DISTINCT vergessen" — die
-bestehen sonst gern versehentlich.
+- Einführungen sind verständlich geschrieben und haben passende Beispiele
+- Freier Modus funktioniert 
+- Stufe 1 Beispiele sind passend; Lösung funktioniert
+  
 
 ## Später, falls ihr es wollt
 
