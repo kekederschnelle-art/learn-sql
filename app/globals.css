@@ -202,8 +202,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 24px 28px 48px;
-  max-width: 900px;
+  /*
+    Zentriert den Inhalt in seiner Spalte, ohne den Scrollbereich zu verengen:
+    Die seitliche Innenabstand waechst mit der Spaltenbreite, der Inhalt
+    bleibt bei hoechstens 880px. Ein max-width auf .buehne selbst wuerde den
+    Inhalt nur an den linken Rand kleben - genau der Fehler aus V3.
+  */
+  --inhalt: 880px;
+  padding: 28px max(28px, calc((100% - var(--inhalt)) / 2)) 56px;
 }
 
 .aufgabenkopf .marke {
@@ -262,16 +268,7 @@ button {
   outline: none !important;
 }
 
-.cm-gutters {
-  background: var(--flaeche) !important;
-  border-right: 1px solid var(--kante) !important;
-  color: var(--leise) !important;
-}
-
-.cm-activeLine,
-.cm-activeLineGutter {
-  background: rgba(255, 255, 255, 0.025) !important;
-}
+/* Gutter, aktive Zeile und Farben kommen aus components/SqlEditor.tsx. */
 
 /* ------------------------------------------------------------- Steuerung */
 

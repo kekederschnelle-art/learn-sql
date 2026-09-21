@@ -24,7 +24,7 @@ const START = `-- Freier Modus: hier bleiben Änderungen bestehen.
 -- Probier ruhig INSERT, UPDATE, CREATE TABLE oder DROP.
 -- Der Knopf oben rechts baut den Datenstand wieder neu auf.
 
-select * from fahrzeuge limit 10;
+select * from cars limit 10;
 `;
 
 const VERLAUF_MAX = 12;

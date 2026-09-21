@@ -175,7 +175,7 @@ export default function Lektion({ level }: { level: number }) {
             onClick={() => setSchritt((s) => Math.max(0, s - 1))}
             disabled={schritt === 0}
           >
-            ← Zurück
+            Zurück
           </button>
 
           {letzter ? (
