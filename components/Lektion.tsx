@@ -68,7 +68,7 @@ export default function Lektion({ level }: { level: number }) {
     return (
       <div className="buehne">
         <p>Diese Lektion gibt es nicht.</p>
-        <Link className="knopf" href="/">
+        <Link className="knopf" href="/lektionen">
           Zur Übersicht
         </Link>
       </div>
@@ -80,7 +80,7 @@ export default function Lektion({ level }: { level: number }) {
   return (
     <div className="huelle huelle-lektion">
       <header className="kopf">
-        <Link href="/" className="zurueck">
+        <Link href="/lektionen" className="zurueck">
           ← Übersicht
         </Link>
         <h1>

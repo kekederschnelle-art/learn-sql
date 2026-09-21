@@ -43,7 +43,10 @@ export default function Home() {
     <div className="start">
       <div className="start-oben">
       <header className="start-kopf">
-        <h1>SQL-Prüfstand</h1>
+        <Link href="/" className="zurueck">
+          ← Start
+        </Link>
+        <h1>Alle Stufen</h1>
         <p className="lead">
           SQL an einem Gebrauchtwagen-Marktplatz lernen. Neun Stufen, jede mit
           einer Einführung und acht Aufgaben. Der Datensatz wächst mit: Was du auf

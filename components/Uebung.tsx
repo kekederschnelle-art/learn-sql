@@ -139,7 +139,7 @@ export default function Uebung({ level }: { level: number }) {
     return (
       <div className="buehne">
         <p>Für diese Stufe gibt es keine Aufgaben.</p>
-        <Link className="knopf" href="/">
+        <Link className="knopf" href="/lektionen">
           Zur Übersicht
         </Link>
       </div>
@@ -154,7 +154,7 @@ export default function Uebung({ level }: { level: number }) {
   return (
     <div className="huelle">
       <header className="kopf">
-        <Link href="/" className="zurueck">
+        <Link href="/lektionen" className="zurueck">
           ← Übersicht
         </Link>
         <h1>

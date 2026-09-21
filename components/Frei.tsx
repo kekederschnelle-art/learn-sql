@@ -93,7 +93,7 @@ export default function Frei() {
   return (
     <div className="huelle huelle-lektion">
       <header className="kopf">
-        <Link href="/" className="zurueck">
+        <Link href="/lektionen" className="zurueck">
           ← Übersicht
         </Link>
         <h1>Freier Modus</h1>
