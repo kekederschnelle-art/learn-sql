@@ -1,6 +1,10 @@
 # SQL-Prüfstand
 
 SQL üben an einem Gebrauchtwagen-Datensatz, der mit jeder Stufe wächst.
+Neun Stufen, je eine Einführung und acht Aufgaben, dazu ein freier Modus.
+
+Das Datenbankschema (Tabellen, Spalten, Werte) ist englisch, alle Texte
+sind deutsch.
 Postgres läuft per WebAssembly im Browser-Tab — kein Server, keine Datenbank,
 keine Kosten.
 
@@ -33,13 +37,54 @@ Download ist das PGlite-WASM-Modul (rund 3 MB, wird gecacht).
 
 ## Wie es aufgebaut ist
 
+### Seiten
+
+| Route | Was |
+| --- | --- |
+| `/` | Startseite: sechs Lektionskarten, Fortschritt, Empfehlung |
+| `/lektion/[stufe]` | Einführung, in Abschnitten durchklickbar, Beispiele editier- und ausführbar |
+| `/uebung/[stufe]` | Die vier Aufgaben dieser Stufe |
+| `/frei` | Freier Editor mit Schreibzugriff, Datenstand wählbar |
+
+Alle Seiten werden zur Build-Zeit statisch erzeugt.
+
+### Dateien
+
 | Datei | Zweck |
 | --- | --- |
-| `lib/migrations.ts` | Der Datensatz, in sechs Stufen. Stufe N = Migration 1…N |
+| `lib/migrations.ts` | Der Datensatz, in neun Stufen. Stufe N = Migration 1…N |
+| `lib/lektionen.ts` | Die Einführungen: Abschnitte mit Text, Beispiel-SQL und Fallen |
 | `lib/tasks.ts` | Aufgaben mit Musterlösung als SQL |
 | `lib/compare.ts` | Vergleich zweier Ergebnismengen |
 | `lib/db.ts` | PGlite-Instanz pro Stufe, Ausführung mit garantiertem Rollback |
-| `lib/fortschritt.ts` | Gelöste Aufgaben und Entwürfe im localStorage |
+| `lib/fortschritt.ts` | Gelöste Aufgaben, Entwürfe und gelesene Lektionen im localStorage |
+
+### Zwei Prüfmechanismen
+
+Aufgaben haben ein Feld `art`:
+
+- `'abfrage'` (Standard) — die Eingabe ist ein SELECT, verglichen wird die Ausgabe.
+- `'zustand'` — die Eingabe verändert die Datenbank (INSERT/UPDATE/DELETE/CREATE)
+  und liefert selbst nichts Vergleichbares. Danach läuft die in `pruefung`
+  hinterlegte Abfrage und liest den entstandenen Zustand aus. Verglichen wird
+  der Zustand nach der Eingabe mit dem nach der Musterlösung.
+
+Wichtig bei `pruefung`: **keine serial-IDs auswählen.** Sequenzen werden von
+ROLLBACK nicht zurückgesetzt, die Nummern wären zwischen den beiden Läufen
+verschoben und die Aufgabe dadurch nie lösbar. Prüf lieber fachliche Spalten.
+Für CREATE-TABLE-Aufgaben liest die Prüfung `information_schema` aus — also
+Spalten, Typen, Nullbarkeit und Constraint-Typen, nie Constraint-*Namen*, die
+vergibt Postgres automatisch.
+
+### Zwei Datenbankinstanzen
+
+`lib/db.ts` hält zwei getrennte PGlite-Instanzen:
+
+- `'uebung'` — für Lektionen und Aufgaben, jede Ausführung mit ROLLBACK
+- `'frei'` — für den freien Modus, dort bleiben Änderungen bestehen
+
+Das muss getrennt bleiben. Würde der freie Modus dieselbe Instanz benutzen,
+könnte ein `drop table` dort die Aufgaben unlösbar machen.
 
 ### Der wichtigste Entwurfsentscheid
 
@@ -63,12 +108,33 @@ das die Sorte Fehler, die erst auffällt, wenn sich jemand beschwert.
 
 Spaltenreihenfolge ist mit Absicht streng: würde man Spalten anhand ihrer
 Werte einander zuordnen, gingen vertauschte Spalten gleichen Typs
-(`name, stadt` statt `stadt, name`) als richtig durch. Stattdessen wird
+(`name, city` statt `city, name`) als richtig durch. Stattdessen wird
 positionsweise verglichen, und der Reihenfolgefehler bekommt eine eigene
 Meldung.
 
 Eingaben laufen immer in `BEGIN … ROLLBACK`. Ein `DROP TABLE` oder `UPDATE`
 kann den Datenstand also nicht verändern.
+
+## Lektionen ergänzen
+
+Abschnitte in `lib/lektionen.ts` anhängen:
+
+```ts
+{
+  titel: 'Überschrift des Abschnitts',
+  text: ['Absatz eins.', 'Absatz zwei.'],   // `code` und **fett** werden ausgezeichnet
+  beispiel: 'select ...',                    // optional, wird ausführbar angezeigt
+  beobachtung: 'Was man am Ergebnis sehen soll.',
+  falle: 'Der typische Fehler.',             // optional, rot hervorgehoben
+}
+```
+
+Das Beispiel-SQL läuft gegen den Datenstand **dieser Stufe**. Ein JOIN auf
+`dealers` funktioniert in Lektion 1 also nicht — die Tabelle gibt es dort
+noch nicht.
+
+Lohnt sich: Formulier die `beobachtung` als Aufforderung („Lösch das HAVING
+und vergleich"). Die Beispiele sind editierbar, das wird sonst nicht genutzt.
 
 ## Aufgaben ergänzen
 

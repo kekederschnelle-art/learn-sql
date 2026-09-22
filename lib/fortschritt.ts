@@ -3,8 +3,12 @@
  * Wenn ihr spaeter Accounts wollt, ist das hier die Stelle, die getauscht wird.
  */
 
-const SCHLUESSEL_GELOEST = 'sql-pruefstand:geloest';
-const SCHLUESSEL_ENTWURF = 'sql-pruefstand:entwurf';
+const K_GELOEST = 'sql-pruefstand:geloest';
+// v4: Schema ist jetzt englisch. Alte Entwuerfe mit deutschen Spaltennamen
+// wuerden nicht mehr laufen, deshalb neuer Schluessel. Geloeste Aufgaben
+// bleiben erhalten - die haengen nur an der Aufgaben-id.
+const K_ENTWURF = 'sql-pruefstand:entwurf:v4';
+const K_GELESEN = 'sql-pruefstand:gelesen';
 
 function lies<T>(schluessel: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -25,16 +29,19 @@ function schreib(schluessel: string, wert: unknown) {
   }
 }
 
-export const ladeGeloest = (): string[] => lies<string[]>(SCHLUESSEL_GELOEST, []);
-export const speichereGeloest = (ids: string[]) => schreib(SCHLUESSEL_GELOEST, ids);
+export const ladeGeloest = () => lies<string[]>(K_GELOEST, []);
+export const speichereGeloest = (ids: string[]) => schreib(K_GELOEST, ids);
 
-export const ladeEntwuerfe = (): Record<string, string> =>
-  lies<Record<string, string>>(SCHLUESSEL_ENTWURF, {});
-export const speichereEntwuerfe = (e: Record<string, string>) =>
-  schreib(SCHLUESSEL_ENTWURF, e);
+export const ladeEntwuerfe = () => lies<Record<string, string>>(K_ENTWURF, {});
+export const speichereEntwuerfe = (e: Record<string, string>) => schreib(K_ENTWURF, e);
 
-export function alleszuruecksetzen() {
+/** Stufen, deren Lektion einmal bis zum Ende durchgeklickt wurde. */
+export const ladeGelesen = () => lies<number[]>(K_GELESEN, []);
+export const speichereGelesen = (level: number[]) => schreib(K_GELESEN, level);
+
+export function allesZuruecksetzen() {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(SCHLUESSEL_GELOEST);
-  window.localStorage.removeItem(SCHLUESSEL_ENTWURF);
+  for (const k of [K_GELOEST, K_ENTWURF, K_GELESEN]) {
+    window.localStorage.removeItem(k);
+  }
 }

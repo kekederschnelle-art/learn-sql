@@ -202,8 +202,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 24px 28px 48px;
-  max-width: 900px;
+  /*
+    Zentriert den Inhalt in seiner Spalte, ohne den Scrollbereich zu verengen:
+    Die seitliche Innenabstand waechst mit der Spaltenbreite, der Inhalt
+    bleibt bei hoechstens 880px. Ein max-width auf .buehne selbst wuerde den
+    Inhalt nur an den linken Rand kleben - genau der Fehler aus V3.
+  */
+  --inhalt: 880px;
+  padding: 28px max(28px, calc((100% - var(--inhalt)) / 2)) 56px;
 }
 
 .aufgabenkopf .marke {
@@ -262,16 +268,7 @@ button {
   outline: none !important;
 }
 
-.cm-gutters {
-  background: var(--flaeche) !important;
-  border-right: 1px solid var(--kante) !important;
-  color: var(--leise) !important;
-}
-
-.cm-activeLine,
-.cm-activeLineGutter {
-  background: rgba(255, 255, 255, 0.025) !important;
-}
+/* Gutter, aktive Zeile und Farben kommen aus components/SqlEditor.tsx. */
 
 /* ------------------------------------------------------------- Steuerung */
 
@@ -483,6 +480,12 @@ table.ergebnis tbody tr:nth-child(even) {
   background: rgba(255, 255, 255, 0.018);
 }
 
+/* Senkrechte Linien zwischen den Spalten, damit breite Tabellen lesbar bleiben. */
+table.ergebnis th:not(:last-child),
+table.ergebnis td:not(:last-child) {
+  border-right: 1px solid var(--kante);
+}
+
 table.ergebnis td.zahl {
   text-align: right;
 }
@@ -601,5 +604,937 @@ table.ergebnis td.null {
   }
   .aufgabenkopf h2 {
     font-size: 20px;
+  }
+}
+
+/* ══════════════════════════════════════════════════ V2: Startseite ══ */
+
+.start {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 28px 72px;
+}
+
+.start-kopf h1 {
+  margin: 0 0 14px;
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.start-kopf .lead {
+  margin: 0 0 8px;
+  max-width: 62ch;
+  font-size: 16px;
+  color: #cfd8d1;
+}
+
+.start-kopf .lead.leise {
+  color: var(--leise);
+  font-size: 14.5px;
+}
+
+.start-stand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin: 28px 0 22px;
+  padding: 11px 16px;
+  border: 1px solid var(--kante);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+  font-size: 13.5px;
+}
+
+.start-stand .leise {
+  color: var(--gedaempft);
+}
+
+.start-stand .fertig-hinweis {
+  color: var(--korrekt);
+}
+
+.karten {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.karte {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--kante);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+
+/* Die empfohlene Karte ist die einzige Stelle mit Signalfarbe im Raster. */
+.karte[data-empfohlen='true'] {
+  border-color: var(--kante-hell);
+  box-shadow: inset 3px 0 0 var(--signal);
+}
+
+.karte-zeile {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.karte-nr {
+  font-size: 11.5px;
+  color: var(--signal);
+}
+
+.karte-haken {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--korrekt);
+}
+
+.karte-marke {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.karte h2 {
+  margin: 0 0 6px;
+  font-size: 18.5px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+}
+
+.karte-kurz {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--gedaempft);
+  line-height: 1.45;
+}
+
+.begriffe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.begriffe li {
+  padding: 1px 7px;
+  border: 1px solid var(--kante-hell);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--gedaempft);
+}
+
+.karte-daten {
+  margin: auto 0 12px;
+  font-size: 11.5px;
+  color: var(--leise);
+}
+
+.karte-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.karte-knoepfe .knopf {
+  flex: 1 1 auto;
+  padding: 7px 12px;
+  font-size: 13px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.start-fuss {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--kante);
+}
+
+.knopf-still {
+  border-color: transparent;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--leise);
+}
+
+.knopf-still:hover:not(:disabled) {
+  border-color: var(--kante-hell);
+  color: var(--gedaempft);
+}
+
+/* ══════════════════════════════════════════════════ V2: Lektion ══ */
+
+.zurueck {
+  color: var(--gedaempft);
+  text-decoration: none;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.zurueck:hover {
+  color: var(--text);
+}
+
+/* Lektion braucht keine Aufgaben-Rail. */
+.huelle-lektion {
+  grid-template-columns: minmax(0, 1fr) var(--schema);
+  grid-template-areas:
+    'kopf kopf'
+    'buehne schema';
+}
+
+.punkte {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.punkt {
+  width: 26px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--kante);
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.punkt:hover {
+  background: var(--kante-hell);
+}
+
+.punkt[data-zustand='durch'] {
+  background: var(--kante-hell);
+}
+
+.punkt[data-zustand='hier'] {
+  background: var(--signal);
+}
+
+.lehrtext .marke {
+  font-size: 12px;
+  color: var(--leise);
+}
+
+.lehrtext h2 {
+  margin: 2px 0 12px;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+}
+
+.lehrtext p {
+  margin: 0 0 12px;
+  max-width: 68ch;
+  color: #cfd8d1;
+  line-height: 1.62;
+}
+
+.lehrtext code,
+.beobachtung code,
+.falle code {
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--flaeche-hoch);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.88em;
+  color: var(--signal);
+}
+
+.lehrtext strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.falle {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--falsch);
+  border-radius: var(--radius);
+  background: var(--falsch-tief);
+}
+
+.falle-marke {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  color: var(--falsch);
+}
+
+.falle p {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 14px;
+  color: #e4d2cb;
+  line-height: 1.55;
+}
+
+.beispiel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--kante);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.beispiel-kopf {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--leise);
+}
+
+.beispiel-kopf .knopf {
+  margin-left: auto;
+}
+
+.beobachtung {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 13.5px;
+  color: var(--gedaempft);
+  line-height: 1.55;
+}
+
+.blaettern {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--kante);
+}
+
+.blaettern .knopf {
+  text-decoration: none;
+}
+
+/* ══════════════════════════════════════════════ V2: Übung, Ergänzung ══ */
+
+.rail-fuss {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 16px;
+  border-top: 1px solid var(--kante);
+}
+
+.rail-link {
+  font-size: 13px;
+  color: var(--gedaempft);
+  text-decoration: none;
+}
+
+.rail-link:hover {
+  color: var(--text);
+}
+
+.rail-link.stark {
+  color: var(--signal);
+}
+
+.verdikt .weiter {
+  display: inline-block;
+  margin-top: 9px;
+  border-color: var(--kante-hell);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ══════════════════════════════════════════════════ V2: Schmal ══ */
+
+@media (max-width: 1180px) {
+  .huelle-lektion {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'kopf'
+      'buehne';
+  }
+}
+
+@media (max-width: 860px) {
+  .start {
+    padding: 32px 16px 56px;
+  }
+  .start-kopf h1 {
+    font-size: 29px;
+  }
+  .karten {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .huelle-lektion {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'kopf'
+      'buehne';
+  }
+  .lehrtext h2 {
+    font-size: 21px;
+  }
+  .kopf h1 {
+    font-size: 15px;
+  }
+}
+
+/* ══════════════════════════════════════════════════ V3: Freier Modus ══ */
+
+.kopf-werkzeuge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.stufenwahl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+}
+
+.stufenwahl .leise {
+  color: var(--leise);
+}
+
+.stufenwahl select {
+  padding: 5px 8px;
+  border: 1px solid var(--kante-hell);
+  border-radius: var(--radius);
+  background: var(--flaeche-hoch);
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+}
+
+/* Der Hinweis wechselt die Farbe, sobald der Datenstand nicht mehr original ist. */
+.frei-hinweis {
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  border-left: 3px solid var(--kante-hell);
+  background: var(--flaeche);
+}
+
+.frei-hinweis[data-veraendert='true'] {
+  border-left-color: var(--signal);
+  background: var(--signal-tief);
+}
+
+.frei-hinweis p {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 13.5px;
+  color: #cfd8d1;
+  line-height: 1.55;
+}
+
+.frei-hinweis p.leise {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--gedaempft);
+}
+
+.frei-hinweis strong {
+  color: var(--text);
+}
+
+.verlauf .kappe {
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  color: var(--leise);
+}
+
+.verlauf ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--kante);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.verlauf-eintrag {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--gedaempft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verlauf-eintrag:hover {
+  background: var(--flaeche-hoch);
+  color: var(--text);
+}
+
+/* ═══════════════════════════════════ V4.1: freier Modus oben rechts ══ */
+
+.start-oben {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 40px;
+  align-items: start;
+}
+
+.frei-karte {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 18px;
+  border: 1px dashed var(--kante-hell);
+  border-radius: var(--radius);
+}
+
+.frei-karte h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.frei-karte p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--gedaempft);
+  line-height: 1.5;
+}
+
+.frei-karte .knopf {
+  align-self: flex-start;
+  margin-top: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .start-oben {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .frei-karte {
+    margin-top: 0;
+  }
+  .frei-karte .knopf {
+    align-self: stretch;
+    text-align: center;
+  }
+}
+
+@media (max-width: 860px) {
+  .kopf-werkzeuge {
+    width: 100%;
+    margin-left: 0;
+  }
+  .stufenwahl {
+    flex: 1 1 auto;
+  }
+  .stufenwahl select {
+    width: 100%;
+  }
+  .kopf {
+    flex-wrap: wrap;
+  }
+}
+
+/* ══════════════════════════════════════════════════ V5: Landingpage ══ */
+
+.landing {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 28px 88px;
+}
+
+.landing .leise {
+  color: var(--gedaempft);
+}
+
+.land-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--kante);
+}
+
+.land-logo {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.land-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.land-links a:not(.knopf) {
+  color: var(--gedaempft);
+  text-decoration: none;
+}
+
+.land-links a:not(.knopf):hover {
+  color: var(--text);
+}
+
+.land-links .knopf,
+.land-cta .knopf {
+  text-decoration: none;
+}
+
+.knopf-gross {
+  padding: 11px 20px;
+  font-size: 15px;
+}
+
+/* ── Hero */
+
+.land-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 56px;
+  align-items: center;
+  padding: 72px 0 24px;
+}
+
+.land-eyebrow {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.land-hero h1 {
+  margin: 0 0 22px;
+  font-size: clamp(34px, 4.4vw, 56px);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+}
+
+.land-h1-zweit {
+  display: block;
+  margin-top: 12px;
+  font-size: 0.56em;
+  letter-spacing: -0.02em;
+  color: var(--signal);
+}
+
+.land-lead {
+  margin: 0 0 30px;
+  max-width: 54ch;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #cfd8d1;
+}
+
+.land-zahlen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 38px;
+  margin: 0 0 32px;
+}
+
+.land-zahlen div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+
+.land-zahlen dd {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.land-zahlen dt {
+  font-size: 11.5px;
+  color: var(--leise);
+}
+
+.land-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.land-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--kante-hell);
+  border-radius: 6px;
+  background: var(--flaeche);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.land-demo-kopf,
+.land-demo-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.land-demo-kopf span:first-child {
+  font-weight: 600;
+}
+
+.land-demo-kopf .mono {
+  font-size: 11.5px;
+}
+
+.land-demo .tabellenhuelle {
+  max-height: 260px;
+}
+
+/* ── Abschnitte */
+
+.land-block {
+  margin-top: 104px;
+}
+
+.land-block h2,
+.land-schluss h2 {
+  margin: 0 0 10px;
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.land-block-lead {
+  margin: 0 0 40px;
+  max-width: 62ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--gedaempft);
+}
+
+/* ── Wachstumsgrafik: das Kernargument */
+
+.wachstum {
+  --block: 14px;
+  --abstand: 4px;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wachstum-stufe {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Alle Stapel gleich hoch, damit die Unterkanten auf einer Linie liegen. */
+.stapel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--abstand);
+  height: calc((var(--max) + 1) * (var(--block) + var(--abstand)));
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--kante-hell);
+}
+
+.block {
+  display: block;
+  height: var(--block);
+  border-radius: 2px;
+  background: var(--kante-hell);
+}
+
+.block-neu {
+  background: var(--signal);
+}
+
+.block-eigen {
+  background: transparent;
+  border: 1px dashed var(--signal);
+}
+
+.wachstum-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wachstum-nr {
+  font-size: 11.5px;
+  color: var(--signal);
+}
+
+.wachstum-label {
+  font-size: 11.5px;
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wachstum-konzept {
+  font-size: 12.5px;
+  color: var(--gedaempft);
+  line-height: 1.4;
+}
+
+.wachstum-legende {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 0;
+  margin: 26px 0 0;
+  font-size: 12.5px;
+}
+
+.wachstum-legende .block {
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  margin: 0 7px 0 18px;
+}
+
+.wachstum-legende .block:first-child {
+  margin-left: 0;
+}
+
+/* ── Ablauf */
+
+.ablauf {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 32px;
+}
+
+.ablauf article {
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid var(--kante);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+
+.ablauf-nr {
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.ablauf h3 {
+  margin: 6px 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ablauf article > p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--gedaempft);
+}
+
+.ablauf-probe {
+  margin-top: auto;
+}
+
+/* ── Schluss */
+
+.land-schluss {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 104px;
+  padding: 30px;
+  border: 1px solid var(--kante-hell);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--radius);
+  background: var(--flaeche);
+}
+
+.land-schluss p {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 14px;
+}
+
+/* ── Schmal */
+
+@media (max-width: 1000px) {
+  .land-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding-top: 48px;
+  }
+  .ablauf {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Auf schmalen Bildschirmen wird aus der Reihe eine Liste,
+   die Stapel liegen dann waagerecht. */
+@media (max-width: 860px) {
+  .landing {
+    padding: 0 16px 64px;
+  }
+  .land-links a:not(.knopf) {
+    display: none;
+  }
+  .land-block,
+  .land-schluss {
+    margin-top: 72px;
+  }
+  .wachstum {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .wachstum-stufe {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+  }
+  .stapel {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    height: 18px;
+    padding: 0;
+    border: none;
+  }
+  .stapel .block {
+    width: 10px;
+    height: 18px;
   }
 }

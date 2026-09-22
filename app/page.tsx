@@ -1,5 +1,5 @@
-import Trainer from '@/components/Trainer';
+import Landing from '@/components/Landing';
 
 export default function Seite() {
-  return <Trainer />;
+  return <Landing />;
 }
