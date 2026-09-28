@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   V7 – Prüfungsmodus, Sicherung, Nur-Ausführen
+   V7 / V7.1 – Prüfungsmodus, Prüfungslog, Sicherung, Nur-Ausführen
 
    Kommt nach globals.css und v6.css, greift also bei gleicher Spezifität.
    Verwendet nur Variablen, die dort schon definiert sind.
@@ -17,16 +17,36 @@
   color: var(--gedaempft);
 }
 
-/* ─────────────────────────────────────── Modus-Karten (/lektionen) ── */
+/* ─────────────────────────────── V7.1: Modus-Karten nebeneinander ── */
+/*
+   Vorher standen Prüfung und Freier Modus untereinander in der rechten
+   Spalte neben der Einleitung. Jetzt liegen sie als gleichwertiges Paar
+   über die volle Breite zwischen Einleitung und Fortschrittszeile.
+   `.start-oben` wird dafür nicht mehr gebraucht.
+*/
 
 .modus-karten {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 30px 0 0;
 }
 
+/* Beide Karten gleich hoch, die Knöpfe auf einer Linie. */
 .modus-karten .frei-karte {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   margin: 0;
+}
+
+.modus-karten .frei-karte > p {
+  flex: 1;
+}
+
+.modus-karten .frei-karte .knopf {
+  align-self: flex-start;
+  margin-top: auto;
 }
 
 /* ─────────────────────────────────────────── Sicherung im Fußbereich ── */
@@ -204,11 +224,17 @@
   background: var(--flaeche);
 }
 
-.pruef-zeile[data-zustand='korrekt'] {
+.pruef-zeile[data-zustand='korrekt'],
+.pruef-zeile[data-ton='gut'] {
   border-left-color: var(--korrekt);
 }
 
-.pruef-zeile[data-zustand='falsch'] {
+.pruef-zeile[data-ton='mittel'] {
+  border-left-color: var(--signal);
+}
+
+.pruef-zeile[data-zustand='falsch'],
+.pruef-zeile[data-ton='schwach'] {
   border-left-color: var(--falsch);
 }
 
@@ -273,6 +299,173 @@
   max-width: 72ch;
 }
 
+/* ═══════════════════════════════════════════ V7.1: Prüfungslog ══ */
+
+.pruef-log {
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px solid var(--kante);
+}
+
+.pruef-log-kopf {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pruef-log-kopf h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.pruef-log-lead {
+  margin: 10px 0 0;
+  max-width: 72ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.pruef-log-score {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Ein Durchgang auf einen Blick: ein Kästchen je Aufgabe. */
+.pruef-punkte {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pruef-punkt {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--kante-hell);
+}
+
+.pruef-punkt[data-stand='korrekt'] {
+  background: var(--korrekt);
+}
+
+.pruef-punkt[data-stand='falsch'] {
+  background: var(--falsch);
+}
+
+.pruef-punkt[data-stand='leer'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--kante-hell);
+}
+
+.pruef-log-meta,
+.pruef-log-datum {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pruef-log-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pruef-log-details li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--kante);
+  font-size: 13.5px;
+}
+
+.pruef-log-details li:last-child {
+  border-bottom: none;
+}
+
+.pruef-log-details li[data-stand='leer'] {
+  opacity: 0.6;
+}
+
+.pruef-log-details li[data-stand='korrekt'] .pruef-zeile-marke {
+  color: var(--korrekt);
+}
+
+.pruef-log-details li[data-stand='falsch'] .pruef-zeile-marke {
+  color: var(--falsch);
+}
+
+.pruef-log-titel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Der Grund steht in einer eigenen Zeile unter dem Eintrag, nicht daneben –
+   sonst zerreißt es die Spalten, sobald die Meldung lang wird. */
+.pruef-log-grund {
+  flex-basis: 100%;
+  padding-left: 34px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ═════════════════════════════════ V7.1: Löschen in zwei Schritten ══ */
+/*
+   Statt eines Browser-Dialogs, den man reflexhaft wegklickt: eine Abfrage
+   auf der Seite, die benennt, was verschwindet. Der gefährliche Knopf steht
+   rechts und ist der einzige rote auf der Seite.
+*/
+
+.gefahr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--falsch);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--falsch-tief);
+}
+
+.gefahr-frage {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gefahr-was {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #e4d2cb;
+}
+
+.gefahr-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.knopf-gefahr {
+  border-color: var(--falsch);
+  color: var(--falsch);
+}
+
+.knopf-gefahr:hover {
+  background: var(--falsch);
+  color: var(--flaeche);
+}
+
 /* ═══════════════════════════════════ Prüfung auf der Startseite ══ */
 
 .pruef-merkmale {
@@ -305,6 +498,11 @@
 /* ═══════════════════════════════════════════════════════ Schmal ══ */
 
 @media (max-width: 860px) {
+  .modus-karten {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
   .pruef-konfig {
     gap: 14px;
     padding: 16px;
@@ -328,5 +526,29 @@
   .pruef-zeile-titel {
     flex: 1 1 100%;
     order: 3;
+  }
+
+  /* Im Log ist die Punktreihe die wichtigste Information – sie bekommt
+     eine eigene Zeile, Datum und Meta rücken darunter. */
+  .pruef-punkte {
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  .pruef-log-meta {
+    order: 4;
+    white-space: normal;
+  }
+
+  .pruef-log-datum {
+    order: 5;
+  }
+
+  .pruef-log-details li {
+    flex-wrap: wrap;
+  }
+
+  .pruef-log-grund {
+    padding-left: 0;
   }
 }

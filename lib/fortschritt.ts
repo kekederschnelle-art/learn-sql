@@ -9,6 +9,8 @@ const K_GELOEST = 'sql-pruefstand:geloest';
 // bleiben erhalten - die haengen nur an der Aufgaben-id.
 const K_ENTWURF = 'sql-pruefstand:entwurf:v4';
 const K_GELESEN = 'sql-pruefstand:gelesen';
+// v7.1
+const K_LOG = 'sql-pruefstand:pruefungslog';
 
 function lies<T>(schluessel: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -39,9 +41,92 @@ export const speichereEntwuerfe = (e: Record<string, string>) => schreib(K_ENTWU
 export const ladeGelesen = () => lies<number[]>(K_GELESEN, []);
 export const speichereGelesen = (level: number[]) => schreib(K_GELESEN, level);
 
+// ═══════════════════════════════════════════ V7.1: Pruefungslog ══
+
+/**
+ * Was von einem Pruefungsdurchgang uebrig bleibt.
+ *
+ * Bewusst NUR das Ergebnis, nicht die eingegebenen Queries. Nicht wegen des
+ * Speichers - ein Durchgang kostet als Ergebnis rund ein Kilobyte, mit den
+ * Antworten vielleicht fuenf, gegen ein Limit von mehreren Megabyte. Sondern
+ * weil ein Log zum Ueberfliegen da ist: Was saß, was nicht, und wo es immer
+ * wieder hakt. Alte Queries beantworten diese Frage nicht.
+ *
+ * Soll spaeter doch die Antwort mit rein, kommt ein Feld in `AufgabenStand`
+ * dazu - der Rest bleibt, wie er ist.
+ */
+export type AufgabenStand = {
+  /** Aufgaben-id, damit Titel und Stufe jederzeit nachgeschlagen werden koennen. */
+  id: string;
+  level: number;
+  stand: 'korrekt' | 'falsch' | 'leer';
+  /** Nur bei 'falsch': die Urteilsmeldung, etwa "Richtige Daten, falsche Sortierung." */
+  meldung?: string;
+};
+
+export type PruefungsLauf = {
+  /** Zeitstempel in Millisekunden als Text - dient zugleich als id. */
+  id: string;
+  erstellt: string;
+  /** Bearbeitungsdauer in Sekunden. */
+  dauer: number;
+  konfig: {
+    anzahl: number;
+    vonLevel: number;
+    bisLevel: number;
+    /** null = ohne Zeitlimit gelaufen. */
+    minuten: number | null;
+  };
+  ergebnisse: AufgabenStand[];
+};
+
+/** Aeltere Durchgaenge fallen hinten raus. */
+export const LOG_MAX = 25;
+
+/** Neueste zuerst. */
+export function ladeLog(): PruefungsLauf[] {
+  const roh = lies<PruefungsLauf[]>(K_LOG, []);
+  if (!Array.isArray(roh)) return [];
+  return roh
+    .filter((l) => l && typeof l.id === 'string' && Array.isArray(l.ergebnisse))
+    .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1));
+}
+
+export function speichereLauf(lauf: PruefungsLauf) {
+  const alt = ladeLog().filter((l) => l.id !== lauf.id);
+  schreib(K_LOG, [lauf, ...alt].slice(0, LOG_MAX));
+}
+
+export function logLeeren() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(K_LOG);
+  } catch {
+    /* siehe oben */
+  }
+}
+
+/**
+ * Wie oft eine Stufe ueber alle Durchgaenge hinweg danebenging.
+ * Nicht bearbeitete Aufgaben zaehlen mit - wer nicht hinkam, konnte es
+ * in dem Moment auch nicht.
+ */
+export function schwacheStufen(log: PruefungsLauf[]): { level: number; daneben: number }[] {
+  const zaehler = new Map<number, number>();
+  for (const lauf of log) {
+    for (const e of lauf.ergebnisse) {
+      if (e.stand === 'korrekt') continue;
+      zaehler.set(e.level, (zaehler.get(e.level) ?? 0) + 1);
+    }
+  }
+  return [...zaehler.entries()]
+    .map(([level, daneben]) => ({ level, daneben }))
+    .sort((a, b) => b.daneben - a.daneben || a.level - b.level);
+}
+
 export function allesZuruecksetzen() {
   if (typeof window === 'undefined') return;
-  for (const k of [K_GELOEST, K_ENTWURF, K_GELESEN]) {
+  for (const k of [K_GELOEST, K_ENTWURF, K_GELESEN, K_LOG]) {
     window.localStorage.removeItem(k);
   }
 }
@@ -52,36 +137,42 @@ export function allesZuruecksetzen() {
  * Der localStorage ist weg, sobald jemand "Websitedaten löschen" antippt -
  * und er gilt nur fuer diesen einen Browser auf diesem einen Geraet.
  * Deshalb eine Datei zum Mitnehmen.
+ *
+ * Version 2 (v7.1) fuehrt `log` ein. Dateien aus Version 1 lassen sich
+ * weiterhin einlesen, sie haben dann eben keinen Log dabei.
  */
 export type Sicherung = {
   format: 'sql-pruefstand';
-  version: 1;
+  version: 1 | 2;
   erstellt: string;
   geloest: string[];
   entwuerfe: Record<string, string>;
   gelesen: number[];
+  log?: PruefungsLauf[];
 };
 
 export function standLesen(): Sicherung {
   return {
     format: 'sql-pruefstand',
-    version: 1,
+    version: 2,
     erstellt: new Date().toISOString(),
     geloest: ladeGeloest(),
     entwuerfe: ladeEntwuerfe(),
     gelesen: ladeGelesen(),
+    log: ladeLog(),
   };
 }
 
 export type EinlesErgebnis =
-  | { ok: true; geloestDazu: number; entwuerfeDazu: number }
+  | { ok: true; geloestDazu: number; entwuerfeDazu: number; laeufeDazu: number }
   | { ok: false; fehler: string };
 
 /**
  * Liest eine Sicherung ein und fuehrt sie mit dem vorhandenen Stand
  * ZUSAMMEN, statt ihn zu ersetzen: Geloeste Aufgaben werden vereinigt,
- * Entwuerfe aus der Datei gewinnen bei Gleichstand. So kann man zwei Geraete
- * zusammenfuehren, ohne auf einem davon etwas zu verlieren.
+ * Entwuerfe aus der Datei gewinnen bei Gleichstand, Durchgaenge werden
+ * ueber ihre id zusammengelegt. So kann man zwei Geraete zusammenfuehren,
+ * ohne auf einem davon etwas zu verlieren.
  */
 export function standEinlesen(roh: string): EinlesErgebnis {
   let daten: unknown;
@@ -95,7 +186,7 @@ export function standEinlesen(roh: string): EinlesErgebnis {
   if (!s || typeof s !== 'object' || s.format !== 'sql-pruefstand') {
     return { ok: false, fehler: 'Diese Datei stammt nicht aus dem SQL-Prüfstand.' };
   }
-  if (s.version !== 1) {
+  if (s.version !== 1 && s.version !== 2) {
     return { ok: false, fehler: `Unbekannte Version: ${String(s.version)}.` };
   }
 
@@ -111,24 +202,42 @@ export function standEinlesen(roh: string): EinlesErgebnis {
       if (typeof v === 'string') entwuerfeNeu[k] = v;
     }
   }
+  const logNeu = Array.isArray(s.log)
+    ? s.log.filter(
+        (l): l is PruefungsLauf =>
+          !!l && typeof l.id === 'string' && Array.isArray(l.ergebnisse),
+      )
+    : [];
 
   const geloestAlt = ladeGeloest();
   const gelesenAlt = ladeGelesen();
   const entwuerfeAlt = ladeEntwuerfe();
+  const logAlt = ladeLog();
 
   const geloestDazu = geloestNeu.filter((id) => !geloestAlt.includes(id));
   const entwuerfeDazu = Object.keys(entwuerfeNeu).filter(
     (id) => entwuerfeAlt[id] !== entwuerfeNeu[id],
   );
+  const bekannt = new Set(logAlt.map((l) => l.id));
+  const laeufeDazu = logNeu.filter((l) => !bekannt.has(l.id));
 
   speichereGeloest([...geloestAlt, ...geloestDazu]);
   speichereGelesen([...new Set([...gelesenAlt, ...gelesenNeu])]);
   speichereEntwuerfe({ ...entwuerfeAlt, ...entwuerfeNeu });
+  if (laeufeDazu.length) {
+    schreib(
+      K_LOG,
+      [...logAlt, ...laeufeDazu]
+        .sort((a, b) => (a.erstellt < b.erstellt ? 1 : -1))
+        .slice(0, LOG_MAX),
+    );
+  }
 
   return {
     ok: true,
     geloestDazu: geloestDazu.length,
     entwuerfeDazu: entwuerfeDazu.length,
+    laeufeDazu: laeufeDazu.length,
   };
 }
 
