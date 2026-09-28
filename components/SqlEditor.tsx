@@ -7,6 +7,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { Prec } from '@codemirror/state';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags as t } from '@lezer/highlight';
+import type { SchemaTabelle } from './SchemaPanel';
 
 const CodeMirror = dynamic(() => import('@uiw/react-codemirror'), {
   ssr: false,
@@ -92,29 +93,81 @@ type Props = {
   onChange: (wert: string) => void;
   /** Cmd/Strg + Enter fuehrt aus, ohne dass man zur Maus greifen muss. */
   onAusfuehren: () => void;
+  /** Optional: Cmd/Strg + Shift + Enter - ausfuehren ohne zu pruefen. */
+  onNurAusfuehren?: () => void;
+  /**
+   * V7: Der aktuelle Datenstand. Ohne das kennt die Autovervollstaendigung
+   * nur SQL-Schluesselwoerter; mit ihm auch Tabellen- und Spaltennamen,
+   * inklusive "c." -> Spalten der Tabelle hinter dem Alias.
+   */
+  schema?: SchemaTabelle[];
+  /** Hoehe des Editors. Laengere Queries brauchen mehr Platz. */
+  hoehe?: string;
 };
 
-export default function SqlEditor({ wert, onChange, onAusfuehren }: Props) {
+export default function SqlEditor({
+  wert,
+  onChange,
+  onAusfuehren,
+  onNurAusfuehren,
+  schema,
+  hoehe = '180px',
+}: Props) {
+  // Die Extensions duerfen sich nicht bei jedem Tastendruck neu aufbauen.
+  // Deshalb haengt der Memo an einer stabilen Kurzform des Schemas, nicht
+  // am Array selbst (das kommt bei jedem Render neu aus dem State).
+  const schemaSchluessel = useMemo(
+    () =>
+      (schema ?? [])
+        .map((t) => `${t.name}:${t.spalten.map((s) => s.spalte).join(',')}`)
+        .join('|'),
+    [schema],
+  );
+
   const extensions = useMemo(
-    () => [
-      sql({ dialect: PostgreSQL, upperCaseKeywords: false }),
-      rahmen,
-      syntaxHighlighting(farben),
-      EditorView.lineWrapping,
-      Prec.highest(
-        keymap.of([
-          {
-            key: 'Mod-Enter',
-            preventDefault: true,
-            run: () => {
-              onAusfuehren();
-              return true;
-            },
+    () => {
+      const tabellen: Record<string, string[]> = {};
+      for (const eintrag of schemaSchluessel ? schemaSchluessel.split('|') : []) {
+        const [name, spalten] = eintrag.split(':');
+        if (name) tabellen[name] = spalten ? spalten.split(',') : [];
+      }
+
+      const tasten = [
+        {
+          key: 'Mod-Enter',
+          preventDefault: true,
+          run: () => {
+            onAusfuehren();
+            return true;
           },
-        ]),
-      ),
-    ],
-    [onAusfuehren],
+        },
+      ];
+      if (onNurAusfuehren) {
+        tasten.push({
+          key: 'Mod-Shift-Enter',
+          preventDefault: true,
+          run: () => {
+            onNurAusfuehren();
+            return true;
+          },
+        });
+      }
+
+      return [
+        sql({
+          dialect: PostgreSQL,
+          upperCaseKeywords: false,
+          // Leeres Objekt statt undefined waere ein Unterschied: Mit einem
+          // leeren Schema schlaegt CodeMirror gar keine Namen mehr vor.
+          ...(Object.keys(tabellen).length ? { schema: tabellen } : {}),
+        }),
+        rahmen,
+        syntaxHighlighting(farben),
+        EditorView.lineWrapping,
+        Prec.highest(keymap.of(tasten)),
+      ];
+    },
+    [onAusfuehren, onNurAusfuehren, schemaSchluessel],
   );
 
   return (
@@ -125,7 +178,7 @@ export default function SqlEditor({ wert, onChange, onAusfuehren }: Props) {
         extensions={extensions}
         // 'none' schaltet das eingebaute helle Theme samt Farbschema ab.
         theme="none"
-        height="180px"
+        height={hoehe}
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,
