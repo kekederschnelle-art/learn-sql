@@ -6,9 +6,12 @@
 
 export type Migration = {
   level: number;
-  /** Was in diesem Schritt dazukommt - wird im Schema-Panel angezeigt. */
+  /**
+   * Was in diesem Schritt dazukommt. Reiner Anzeigetext (Startseite,
+   * Lektionskarten, Schema-Panel, Landingpage) - also mit Umlauten.
+   */
   label: string;
-  /** Welche SQL-Konzepte dieser Stand erst moeglich macht. */
+  /** Welche SQL-Konzepte dieser Stand erst möglich macht. Ebenfalls Anzeigetext. */
   freischaltet: string;
   sql: string;
 };
@@ -60,7 +63,7 @@ insert into cars (brand, model, year, mileage, price, color, transmission) value
   {
     level: 2,
     label: 'dealers',
-    freischaltet: 'JOIN ueber Fremdschluessel',
+    freischaltet: 'JOIN über Fremdschlüssel',
     sql: `
 create table dealers (
   id         serial primary key,
@@ -90,7 +93,7 @@ update cars set dealer_id = 5 where id in (8, 14, 19, 21);
   {
     level: 3,
     label: 'customers, inquiries',
-    freischaltet: 'Mehrfach-JOIN ueber n:m, DISTINCT',
+    freischaltet: 'Mehrfach-JOIN über n:m, DISTINCT',
     sql: `
 create table customers (
   id             serial primary key,
@@ -147,7 +150,7 @@ insert into inquiries (customer_id, car_id, created_at, status) values
 
   {
     level: 4,
-    label: 'NULL-Werte, Haendler ohne Bestand',
+    label: 'NULL-Werte, Händler ohne Bestand',
     freischaltet: 'LEFT JOIN, IS NULL, COALESCE',
     sql: `
 alter table cars add column inspection_due   date;
@@ -313,7 +316,7 @@ create table watchlist (
 
   {
     level: 9,
-    label: 'nichts - hier baust du selbst',
+    label: 'nichts – hier baust du selbst',
     freischaltet: 'CREATE TABLE, Constraints, VIEW',
     sql: `
 -- Diese Stufe bringt keine fertigen Tabellen mit. Du legst sie selbst an.
