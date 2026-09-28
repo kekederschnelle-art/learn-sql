@@ -13,6 +13,8 @@ import {
   fuehreAus,
   fuehreAusUndLiesZustand,
   schemaLesen,
+  TransaktionsFehler,
+  type RohErgebnis,
 } from '@/lib/db';
 import {
   abweichungen,
@@ -31,7 +33,9 @@ import {
 type Lauf =
   | { art: 'nichts' }
   | { art: 'laeuft' }
-  | { art: 'sqlfehler'; text: string }
+  | { art: 'sqlfehler'; text: string; kopf: string }
+  // V7: Ausgefuehrt, aber absichtlich nicht geprueft.
+  | { art: 'roh'; daten: RohErgebnis }
   | {
       art: 'geprueft';
       urteil: VergleichsErgebnis;
@@ -40,6 +44,8 @@ type Lauf =
     };
 
 const START_SQL = '-- Deine Query hier\n';
+
+const FEHLER_KOPF = 'Postgres nimmt die Query nicht an.';
 
 export default function Uebung({ level }: { level: number }) {
   const stufenTasks = useMemo(() => tasks.filter((t) => t.level === level), [level]);
@@ -62,6 +68,7 @@ export default function Uebung({ level }: { level: number }) {
   const [schema, setSchema] = useState<SchemaTabelle[]>([]);
 
   const pruefenRef = useRef<() => void>(() => {});
+  const nurAusfuehrenRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     setEntwuerfe(ladeEntwuerfe());
@@ -104,9 +111,19 @@ export default function Uebung({ level }: { level: number }) {
     [aufgabe],
   );
 
+  /** Gibt es ueberhaupt etwas auszufuehren, oder steht da nur ein Kommentar? */
+  const hatInhalt = !!sql.replace(/--[^\n]*/g, '').trim();
+
+  const fehlerAnzeigen = useCallback((f: unknown) => {
+    const kopf =
+      f instanceof TransaktionsFehler
+        ? 'Diese Anweisung ist in den Aufgaben gesperrt.'
+        : FEHLER_KOPF;
+    setLauf({ art: 'sqlfehler', text: (f as Error).message, kopf });
+  }, []);
+
   const pruefen = useCallback(async () => {
-    if (!aufgabe) return;
-    if (!sql.replace(/--[^\n]*/g, '').trim()) return;
+    if (!aufgabe || !hatInhalt) return;
     setLauf({ art: 'laeuft' });
     try {
       const db = await dbFuerLevel(level);
@@ -125,7 +142,7 @@ export default function Uebung({ level }: { level: number }) {
           ? await fuehreAusUndLiesZustand(db, sql, aufgabe.pruefung!)
           : await fuehreAus(db, sql);
       } catch (f) {
-        setLauf({ art: 'sqlfehler', text: (f as Error).message });
+        fehlerAnzeigen(f);
         return;
       }
       const urteil = vergleiche(erwartet, eigene, aufgabe.reihenfolgeZaehlt);
@@ -134,12 +151,32 @@ export default function Uebung({ level }: { level: number }) {
         setGeloest((g) => (g.includes(aufgabe.id) ? g : [...g, aufgabe.id]));
       }
     } catch (f) {
-      setLauf({ art: 'sqlfehler', text: (f as Error).message });
+      fehlerAnzeigen(f);
     }
-  }, [aufgabe, sql, level]);
+  }, [aufgabe, sql, level, hatInhalt, fehlerAnzeigen]);
+
+  /**
+   * V7: Ausfuehren, ohne mit der Musterloesung zu vergleichen.
+   *
+   * Beim SQL-Lernen schaut man sich staendig erst die Daten an
+   * ("select * from inquiries limit 5"). Vorher gab es darauf ein rotes
+   * Kreuz und die Erwartet-Tabelle daneben hat die Loesung verraten.
+   */
+  const nurAusfuehren = useCallback(async () => {
+    if (!aufgabe || !hatInhalt) return;
+    setLauf({ art: 'laeuft' });
+    try {
+      const db = await dbFuerLevel(level);
+      setLauf({ art: 'roh', daten: await fuehreAus(db, sql) });
+    } catch (f) {
+      fehlerAnzeigen(f);
+    }
+  }, [aufgabe, sql, level, hatInhalt, fehlerAnzeigen]);
 
   pruefenRef.current = pruefen;
+  nurAusfuehrenRef.current = nurAusfuehren;
   const pruefenStabil = useCallback(() => pruefenRef.current(), []);
+  const nurAusfuehrenStabil = useCallback(() => nurAusfuehrenRef.current(), []);
 
   // V6: Bei falscher Loesung die abweichenden Zellen/Zeilen bestimmen.
   const abw = useMemo(() => {
@@ -230,7 +267,13 @@ export default function Uebung({ level }: { level: number }) {
           </div>
         </div>
 
-        <SqlEditor wert={sql} onChange={setSql} onAusfuehren={pruefenStabil} />
+        <SqlEditor
+          wert={sql}
+          onChange={setSql}
+          onAusfuehren={pruefenStabil}
+          onNurAusfuehren={nurAusfuehrenStabil}
+          schema={schema}
+        />
 
         <div className="steuerung">
           <button
@@ -239,6 +282,15 @@ export default function Uebung({ level }: { level: number }) {
             disabled={lauf.art === 'laeuft'}
           >
             {lauf.art === 'laeuft' ? 'Läuft …' : 'Ausführen und prüfen'}
+          </button>
+
+          <button
+            className="knopf"
+            onClick={nurAusfuehren}
+            disabled={lauf.art === 'laeuft'}
+            title="Zeigt nur das Ergebnis deiner Query – ohne Vergleich mit der Lösung"
+          >
+            Nur ausführen
           </button>
 
           <button
@@ -257,7 +309,7 @@ export default function Uebung({ level }: { level: number }) {
             {loesungOffen ? 'Lösung verstecken' : 'Lösung zeigen'}
           </button>
 
-          <span className="tastenhinweis mono">⌘/Strg + ⏎</span>
+          <span className="tastenhinweis mono">⌘/Strg + ⏎ · mit ⇧ nur ausführen</span>
         </div>
 
         {hinweiseOffen > 0 && (
@@ -275,8 +327,28 @@ export default function Uebung({ level }: { level: number }) {
           <div className="verdikt" data-art="fehler" role="status">
             <span className="verdikt-zeichen mono">!</span>
             <div>
-              <div className="verdikt-kopf">Postgres nimmt die Query nicht an.</div>
+              <div className="verdikt-kopf">{lauf.kopf}</div>
               <pre>{lauf.text}</pre>
+            </div>
+          </div>
+        )}
+
+        {lauf.art === 'roh' && (
+          <div className="verdikt" data-art="neutral" role="status">
+            <span className="verdikt-zeichen mono">›</span>
+            <div>
+              <div className="verdikt-kopf">
+                Ausgeführt, nicht geprüft.
+                {lauf.daten.felder.length === 0 &&
+                  (lauf.daten.anweisungen === 1
+                    ? ' Anweisung lief durch, kein Ergebnis mit Spalten.'
+                    : ` ${lauf.daten.anweisungen} Anweisungen liefen durch.`)}
+              </div>
+              <ul>
+                <li>
+                  Zum Vergleichen mit der Musterlösung „Ausführen und prüfen“ nehmen.
+                </li>
+              </ul>
             </div>
           </div>
         )}
@@ -322,6 +394,12 @@ export default function Uebung({ level }: { level: number }) {
           <div className="loesungsblock">
             <div className="kappe">Musterlösung – eine von mehreren möglichen</div>
             <pre className="mono">{aufgabe.loesung.trim()}</pre>
+          </div>
+        )}
+
+        {lauf.art === 'roh' && lauf.daten.felder.length > 0 && (
+          <div className="tabellen">
+            <Ergebnistabelle titel="Ergebnis (ungeprüft)" ergebnis={lauf.daten} />
           </div>
         )}
 

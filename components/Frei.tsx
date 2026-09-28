@@ -133,7 +133,12 @@ export default function Frei() {
           </p>
         </div>
 
-        <SqlEditor wert={sql} onChange={setSql} onAusfuehren={ausfuehren} />
+        <SqlEditor
+          wert={sql}
+          onChange={setSql}
+          onAusfuehren={ausfuehren}
+          schema={schema}
+        />
 
         <div className="steuerung">
           <button

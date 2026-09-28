@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
+import type { SchemaTabelle } from './SchemaPanel';
 import { lektionen } from '@/lib/lektionen';
 import { migrations } from '@/lib/migrations';
 import { tasks } from '@/lib/tasks';
-import { dbFuerLevel, fuehreAus, type RohErgebnis } from '@/lib/db';
+import { dbFuerLevel, fuehreAus, schemaLesen, type RohErgebnis } from '@/lib/db';
 import { ladeGeloest } from '@/lib/fortschritt';
 
 const DEMO = `select brand, model, price
@@ -40,6 +41,7 @@ export default function Landing() {
   const [demo, setDemo] = useState<Demo>({ art: 'nichts' });
   const [dbBereit, setDbBereit] = useState(false);
   const [geloest, setGeloest] = useState<string[]>([]);
+  const [schema, setSchema] = useState<SchemaTabelle[]>([]);
 
   useEffect(() => setGeloest(ladeGeloest()), []);
 
@@ -68,10 +70,12 @@ export default function Landing() {
       const db = await dbFuerLevel(1);
       setDbBereit(true);
       setDemo({ art: 'ergebnis', daten: await fuehreAus(db, sql) });
+      // Ab jetzt kennt die Autovervollständigung im Demo-Editor die Tabellen.
+      if (!schema.length) setSchema(await schemaLesen(db));
     } catch (f) {
       setDemo({ art: 'fehler', text: (f as Error).message });
     }
-  }, [sql, dbBereit]);
+  }, [sql, dbBereit, schema.length]);
 
   const maxTabellen = Math.max(...stufen.map((s) => s.alt + s.neu));
 
@@ -83,6 +87,7 @@ export default function Landing() {
         </Link>
         <div className="land-links">
           <Link href="/lektionen">Lektionen</Link>
+          <Link href="/pruefung">Prüfung</Link>
           <Link href="/frei">Freier Modus</Link>
           <Link
             href={weiter ? `/uebung/${weiter}` : '/lektion/1'}
@@ -156,7 +161,12 @@ export default function Landing() {
             <span>Direkt ausprobieren</span>
             <span className="mono leise">Datenstand: Stufe 1</span>
           </div>
-          <SqlEditor wert={sql} onChange={setSql} onAusfuehren={ausfuehren} />
+          <SqlEditor
+            wert={sql}
+            onChange={setSql}
+            onAusfuehren={ausfuehren}
+            schema={schema}
+          />
           <div className="land-demo-fuss">
             <button
               className="knopf knopf-primaer"
@@ -279,6 +289,48 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ──────────────────────────────────────────── Prüfungsmodus ── */}
+      <section className="land-block">
+        <h2>Und dann: Prüfung</h2>
+        <p className="land-block-lead">
+          Aufgaben in der Reihenfolge zu lösen, in der sie erklärt wurden, ist etwas
+          anderes, als sie zu können. Der Prüfungsmodus zieht zufällig quer über die
+          Stufen – da hilft dir nicht mehr, dass gerade das Kapitel über JOINs oben steht.
+        </p>
+
+        <div className="pruef-merkmale">
+          <article>
+            <h3>Du stellst sie dir selbst zusammen</h3>
+            <p>
+              Fünf bis zwanzig Aufgaben, Stufenbereich frei wählbar, Zeitlimit an oder
+              aus. Vor der Klausur nimmst du genau die Stufen, die drankommen.
+            </p>
+          </article>
+          <article>
+            <h3>Kein Feedback zwischendurch</h3>
+            <p>
+              Keine Hinweise, keine Musterlösung, kein Häkchen. Du darfst deine Query
+              ausführen und dir das Ergebnis ansehen – ob es das richtige ist, erfährst
+              du nicht. Zwischen den Aufgaben springen geht jederzeit.
+            </p>
+          </article>
+          <article>
+            <h3>Auswertung am Ende</h3>
+            <p>
+              Erst nach dem Abgeben läuft alles gegen die Musterlösungen: was stimmt,
+              was nicht, und woran es lag – aufklappbar pro Aufgabe, mit deiner Antwort
+              und der Lösung nebeneinander. Was du richtig hattest, zählt zum Fortschritt.
+            </p>
+          </article>
+        </div>
+
+        <div className="land-cta">
+          <Link href="/pruefung" className="knopf knopf-primaer">
+            Prüfung zusammenstellen
+          </Link>
+        </div>
+      </section>
+
       {/* ──────────────────────────────────────────── Schluss ── */}
       <section className="land-schluss">
         <div>
@@ -291,6 +343,9 @@ export default function Landing() {
         <div className="land-cta">
           <Link href="/lektion/1" className="knopf knopf-primaer knopf-gross">
             Mit Stufe 1 anfangen
+          </Link>
+          <Link href="/pruefung" className="knopf knopf-gross">
+            Prüfung
           </Link>
           <Link href="/frei" className="knopf knopf-gross">
             Freier Modus

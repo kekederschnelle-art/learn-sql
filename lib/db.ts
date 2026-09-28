@@ -60,6 +60,119 @@ export async function dbZuruecksetzen(level: number, slot: Slot = 'uebung') {
   return dbFuerLevel(level, slot);
 }
 
+// ═══════════════════════════════════ V7: Transaktionssteuerung sperren ══
+
+/**
+ * fuehreAus() klammert die Eingabe in begin/rollback ein. Steht in der
+ * Eingabe SELBST ein 'commit', ist die Transaktion vorher schon abgeschlossen:
+ * Das anschliessende rollback laeuft ins Leere, die Aenderung bleibt in der
+ * Instanz stehen, und ab da prueft die App gegen einen verfaelschten
+ * Datenstand - ohne dass irgendwer etwas merkt.
+ *
+ * Dasselbe gilt fuer 'rollback' mitten in der Eingabe (rollt vorzeitig zurueck)
+ * und fuer 'begin' (schachtelt nicht, Postgres warnt nur).
+ *
+ * Deshalb wird solches SQL in den Aufgaben gar nicht erst ausgefuehrt. Im
+ * freien Modus ist es erlaubt - dort gibt es keine umschliessende Transaktion.
+ */
+export class TransaktionsFehler extends Error {
+  constructor(public schluesselwort: string) {
+    super(
+      `"${schluesselwort.toUpperCase()}" ist in den Aufgaben nicht erlaubt. ` +
+        'Jede Ausführung läuft hier in einer Transaktion, die danach zurückgerollt wird - ' +
+        'eigene Transaktionssteuerung würde diesen Schutz aushebeln. ' +
+        'Im freien Modus darfst du sie benutzen.',
+    );
+    this.name = 'TransaktionsFehler';
+  }
+}
+
+const GESPERRT =
+  /\b(commit|rollback|begin|start\s+transaction|savepoint|release\s+savepoint|prepare\s+transaction|discard)\b/i;
+
+/**
+ * Entfernt Kommentare, Stringliterale, zitierte Bezeichner und Dollar-Quoting,
+ * damit nur echter Code uebrig bleibt. Ein Auto mit der Notiz 'commit' oder
+ * ein Kommentar '-- hier kein commit' soll die Sperre nicht ausloesen.
+ *
+ * Ein einzelner Durchlauf, kein Stapel von replace(): Nur so wird ein
+ * Apostroph im Kommentar ("-- don't") richtig behandelt.
+ */
+function codeAnteil(sql: string): string {
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    const zwei = sql.slice(i, i + 2);
+
+    if (zwei === '--') {
+      while (i < sql.length && sql[i] !== '\n') i++;
+      out += ' ';
+      continue;
+    }
+
+    if (zwei === '/*') {
+      i += 2;
+      let tiefe = 1;
+      while (i < sql.length && tiefe > 0) {
+        if (sql.slice(i, i + 2) === '/*') {
+          tiefe++;
+          i += 2;
+        } else if (sql.slice(i, i + 2) === '*/') {
+          tiefe--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      out += ' ';
+      continue;
+    }
+
+    const c = sql[i];
+
+    if (c === "'" || c === '"') {
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === c) {
+          // Verdoppeltes Zeichen ist ein Escape und beendet nicht.
+          if (sql[i + 1] === c) i += 2;
+          else {
+            i++;
+            break;
+          }
+        } else {
+          i++;
+        }
+      }
+      out += ' ';
+      continue;
+    }
+
+    if (c === '$') {
+      const m = /^\$[A-Za-z_][A-Za-z_0-9]*\$|^\$\$/.exec(sql.slice(i));
+      if (m) {
+        const tag = m[0];
+        const ende = sql.indexOf(tag, i + tag.length);
+        i = ende < 0 ? sql.length : ende + tag.length;
+        out += ' ';
+        continue;
+      }
+    }
+
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+/** Wirft TransaktionsFehler, wenn die Eingabe eigene Transaktionssteuerung enthaelt. */
+export function pruefeTransaktionsfrei(sql: string) {
+  const treffer = GESPERRT.exec(codeAnteil(sql));
+  if (treffer) throw new TransaktionsFehler(treffer[0]);
+}
+
+// ═════════════════════════════════════════════════════════ Ausfuehrung ══
+
 export type RohErgebnis = QueryResult & {
   /** Bei INSERT/UPDATE/DELETE: Anzahl betroffener Zeilen. */
   betroffen?: number;
@@ -72,6 +185,12 @@ function ausLetztem(ergebnisse: any[]): RohErgebnis {
   const letztes = ergebnisse[ergebnisse.length - 1];
   return {
     felder: mitSpalten ? mitSpalten.fields.map((f: { name: string }) => f.name) : [],
+    // V7: Die Typ-OID je Spalte kommt aus Postgres selbst. compare.ts
+    // entscheidet damit, ob eine Spalte numerisch verglichen wird - statt
+    // es dem einzelnen Wert anzusehen ("007" ist keine Sieben).
+    typen: mitSpalten
+      ? mitSpalten.fields.map((f: { dataTypeID?: number }) => f.dataTypeID ?? -1)
+      : [],
     zeilen: mitSpalten ? (mitSpalten.rows as Record<string, unknown>[]) : [],
     betroffen: letztes?.affectedRows,
     anweisungen: ergebnisse.length,
@@ -84,6 +203,7 @@ function ausLetztem(ergebnisse: any[]): RohErgebnis {
  * veraendern - auch kein UPDATE, DELETE oder DROP.
  */
 export async function fuehreAus(db: PGlite, sql: string): Promise<RohErgebnis> {
+  pruefeTransaktionsfrei(sql);
   await db.exec('begin');
   try {
     const ergebnisse = await db.exec(sql);
@@ -109,13 +229,14 @@ export async function fuehreAusUndLiesZustand(
   sql: string,
   pruefung: string,
 ): Promise<QueryResult> {
+  pruefeTransaktionsfrei(sql);
   await db.exec('begin');
   try {
     await db.exec(sql);
     const ergebnisse = await db.exec(pruefung);
     await db.exec('rollback');
     const roh = ausLetztem(ergebnisse);
-    return { felder: roh.felder, zeilen: roh.zeilen };
+    return { felder: roh.felder, typen: roh.typen, zeilen: roh.zeilen };
   } catch (fehler) {
     try {
       await db.exec('rollback');
@@ -128,7 +249,8 @@ export async function fuehreAusUndLiesZustand(
 
 /**
  * Fuer den freien Modus: fuehrt aus, OHNE zurueckzurollen. Aenderungen
- * bleiben bestehen, bis jemand zuruecksetzt.
+ * bleiben bestehen, bis jemand zuruecksetzt. Hier ist Transaktionssteuerung
+ * erlaubt - es gibt keine umschliessende Transaktion, die sie aushebeln koennte.
  */
 export async function fuehreAusOhneRollback(
   db: PGlite,

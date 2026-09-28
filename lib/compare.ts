@@ -19,6 +19,11 @@
 
 export type QueryResult = {
   felder: string[];
+  /**
+   * V7: Postgres-Typ-OID je Spalte, so wie sie aus `fields[].dataTypeID`
+   * kommt. Optional, damit aeltere Aufrufer weiter funktionieren.
+   */
+  typen?: number[];
   zeilen: Record<string, unknown>[];
 };
 
@@ -31,22 +36,69 @@ export type VergleichsErgebnis = {
 const NULL_MARKER = '\u0000null';
 const ZELL_TRENNER = '\u0001';
 const SPALT_TRENNER = '\u0002';
+const TIE_TRENNER = '\u0003';
+
+/**
+ * V7: Welche Typ-OIDs Postgres als Zahl liefert. numeric und bigint kommen
+ * als String an, int4 als number - deshalb muessen beide auf dieselbe Form.
+ * int2 21 · int8 20 · int4 23 · oid 26 · float4 700 · float8 701 · numeric 1700
+ */
+const NUMERISCHE_TYPEN = new Set([20, 21, 23, 26, 700, 701, 1700]);
+
+const ZAHL_MUSTER = /^-?\d+(\.\d+)?$/;
 
 function rundeZahl(n: number): string {
   if (!Number.isFinite(n)) return String(n);
   return (Math.round(n * 1e6) / 1e6).toString();
 }
 
-/** Bringt einen einzelnen Zellwert auf eine vergleichbare Textform. */
-function normWert(v: unknown): string {
+/**
+ * V7: Pro Spalte entscheiden, ob numerisch verglichen wird - anhand des
+ * Postgres-Typs, nicht anhand des Aussehens des Werts.
+ *
+ * Vorher wurde jeder String, der wie eine Zahl aussieht, zur Zahl gemacht.
+ * Damit galten '007' und 7 als gleich, und eine Postleitzahl '01234' als
+ * 1234. Das war ein Falsch-POSITIV: eine falsche Loesung ging als richtig
+ * durch.
+ *
+ * Numerisch verglichen wird nur, wenn BEIDE Seiten eine Zahlenspalte
+ * liefern. Das deckt den tolerierten Fall ab (int4 kommt als number,
+ * numeric und int8 als String - "12900.00" und 12900 sind dieselbe Zahl),
+ * schliesst aber den Fall aus, der vorher durchrutschte: eine Textspalte
+ * mit '007' gegen eine Zahlenspalte mit 7. Das sind zwei verschiedene
+ * Ergebnisse, und die Aufgabe hat nach einem davon gefragt.
+ *
+ * Fehlt auf einer Seite die Typangabe, gilt die alte Heuristik - besser
+ * als ein Vergleich, der an fehlenden Metadaten scheitert.
+ */
+function numerischeSpalten(
+  a: QueryResult,
+  b: QueryResult,
+  breite: number,
+): (boolean | undefined)[] {
+  return Array.from({ length: breite }, (_, i) => {
+    const ta = a.typen?.[i];
+    const tb = b.typen?.[i];
+    if (ta === undefined || tb === undefined) return undefined;
+    return NUMERISCHE_TYPEN.has(ta) && NUMERISCHE_TYPEN.has(tb);
+  });
+}
+
+/**
+ * Bringt einen einzelnen Zellwert auf eine vergleichbare Textform.
+ * `numerisch`: true = Spalte ist eine Zahlenspalte, false = ist sie nicht,
+ * undefined = unbekannt, dann die alte Heuristik.
+ */
+function normWert(v: unknown, numerisch?: boolean): string {
   if (v === null || v === undefined) return NULL_MARKER;
   if (typeof v === 'boolean') return v ? 'b:true' : 'b:false';
   if (typeof v === 'bigint') return 'n:' + v.toString();
   if (typeof v === 'number') return 'n:' + rundeZahl(v);
   if (v instanceof Date) return 'd:' + v.toISOString();
   if (typeof v === 'string') {
-    // Postgres liefert numeric als String. "12900.00" und 12900 sind dasselbe.
-    if (/^-?\d+(\.\d+)?$/.test(v.trim())) return 'n:' + rundeZahl(Number(v.trim()));
+    const roh = v.trim();
+    if (numerisch === false) return 's:' + v;
+    if (ZAHL_MUSTER.test(roh)) return 'n:' + rundeZahl(Number(roh));
     return 's:' + v;
   }
   if (typeof v === 'object') {
@@ -61,16 +113,36 @@ function normWert(v: unknown): string {
 
 /**
  * Zeilen als normalisierte Wertelisten, in Spaltenreihenfolge des Ergebnisses.
+ *
  * Zaehlt die Zeilenreihenfolge nicht, werden die Zeilen kanonisch sortiert -
  * und zwar nach ihren *sortierten* Werten, damit das Ergebnis unabhaengig
  * davon ist, in welcher Reihenfolge die Spalten stehen.
+ *
+ * V7: Dieser Schluessel allein war nicht eindeutig. Zwei Zeilen mit derselben
+ * Wertemenge in unterschiedlicher Verteilung - ('Munich','Berlin') und
+ * ('Berlin','Munich') - bekamen denselben Schluessel. Bei Gleichstand behaelt
+ * sort() die Ursprungsreihenfolge bei, und die war zwischen Musterloesung und
+ * Eingabe verschieden. Ergebnis: "Die Werte stimmen nicht", obwohl alles
+ * richtig war. Deshalb jetzt ein zweiter Schluessel in Spaltenreihenfolge.
+ *
+ * Preis dafuer: Sind gleichzeitig Spalten vertauscht UND Zeilen gleichstaendig,
+ * wird das nicht mehr als reiner Spaltenfehler erkannt, sondern generisch
+ * gemeldet. Der haeufige Fall wird richtig, der seltene unschaerfer.
  */
-function zeilenMatrix(res: QueryResult, reihenfolgeZaehlt: boolean): string[][] {
-  const matrix = res.zeilen.map((z) => res.felder.map((f) => normWert(z[f])));
+function zeilenMatrix(
+  res: QueryResult,
+  reihenfolgeZaehlt: boolean,
+  numerisch: (boolean | undefined)[],
+): string[][] {
+  const matrix = res.zeilen.map((z) =>
+    res.felder.map((f, i) => normWert(z[f], numerisch[i])),
+  );
   if (reihenfolgeZaehlt) return matrix;
+  const schluessel = (z: string[]) =>
+    [...z].sort().join(ZELL_TRENNER) + TIE_TRENNER + z.join(ZELL_TRENNER);
   return [...matrix].sort((a, b) => {
-    const ka = [...a].sort().join(ZELL_TRENNER);
-    const kb = [...b].sort().join(ZELL_TRENNER);
+    const ka = schluessel(a);
+    const kb = schluessel(b);
     return ka < kb ? -1 : ka > kb ? 1 : 0;
   });
 }
@@ -116,8 +188,9 @@ export function vergleiche(
   }
 
   const breite = erwartet.felder.length;
-  const mErwartet = zeilenMatrix(erwartet, reihenfolgeZaehlt);
-  const mIst = zeilenMatrix(tatsaechlich, reihenfolgeZaehlt);
+  const numerisch = numerischeSpalten(erwartet, tatsaechlich, breite);
+  const mErwartet = zeilenMatrix(erwartet, reihenfolgeZaehlt, numerisch);
+  const mIst = zeilenMatrix(tatsaechlich, reihenfolgeZaehlt, numerisch);
 
   const vErwartet = spaltenVektoren(mErwartet, breite);
   const vIst = spaltenVektoren(mIst, breite);
@@ -142,8 +215,8 @@ export function vergleiche(
 
   // Fall 2: Nur das ORDER BY passt nicht.
   if (reihenfolgeZaehlt) {
-    const oErwartet = spaltenVektoren(zeilenMatrix(erwartet, false), breite);
-    const oIst = spaltenVektoren(zeilenMatrix(tatsaechlich, false), breite);
+    const oErwartet = spaltenVektoren(zeilenMatrix(erwartet, false, numerisch), breite);
+    const oIst = spaltenVektoren(zeilenMatrix(tatsaechlich, false, numerisch), breite);
     if (alsText(oErwartet) === alsText(oIst)) {
       return {
         korrekt: false,
@@ -213,8 +286,13 @@ export function abweichungen(
   const breite = erwartet.felder.length;
   if (breite === 0 || breite !== tatsaechlich.felder.length) return null;
 
-  const mE = erwartet.zeilen.map((z) => erwartet.felder.map((f) => normWert(z[f])));
-  const mI = tatsaechlich.zeilen.map((z) => tatsaechlich.felder.map((f) => normWert(z[f])));
+  const numerisch = numerischeSpalten(erwartet, tatsaechlich, breite);
+  const mE = erwartet.zeilen.map((z) =>
+    erwartet.felder.map((f, i) => normWert(z[f], numerisch[i])),
+  );
+  const mI = tatsaechlich.zeilen.map((z) =>
+    tatsaechlich.felder.map((f, i) => normWert(z[f], numerisch[i])),
+  );
   const roh = (res: QueryResult, zeile: number, spalte: number) =>
     res.zeilen[zeile]?.[res.felder[spalte]];
 
