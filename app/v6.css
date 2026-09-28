@@ -1,0 +1,118 @@
+/* ══════════════════════════════════════════════════════════════ V6 ══
+   Eigene Datei statt Anhang an globals.css, damit V6 als Ganzes sichtbar
+   bleibt. Wird in app/layout.tsx NACH globals.css importiert.
+*/
+
+/* ── Editor klappt nicht mehr zusammen ──────────────────────────────────
+   .buehne ist eine Flex-Spalte mit fester Hoehe. Sobald Verdikt und Tabellen
+   dazukommen, reicht der Platz nicht mehr und Flex schrumpft die Kinder.
+   Der Editor-Rahmen hat overflow: hidden - damit faellt seine Mindesthoehe
+   auf 0, und er wurde als Erster zusammengedrueckt. Die Buehne scrollt
+   ohnehin, also darf hier nichts schrumpfen.
+*/
+.buehne > * {
+  flex-shrink: 0;
+}
+
+/* ── Abweichungen in den Ergebnistabellen ───────────────────────────── */
+
+:root {
+  --abw-ist: rgba(217, 105, 76, 0.3);
+  --abw-ist-kante: #d9694c;
+  --abw-ist-text: #ffe1d6;
+  --abw-soll: rgba(87, 179, 122, 0.26);
+  --abw-soll-kante: #57b37a;
+  --abw-soll-text: #d8f5e2;
+  --abw-verschoben: rgba(230, 180, 34, 0.16);
+}
+
+/* Einzelne Zellen */
+table.ergebnis[data-ton='ist'] td.abw {
+  background: var(--abw-ist);
+  color: var(--abw-ist-text);
+  box-shadow: inset 0 0 0 1px var(--abw-ist-kante);
+  font-style: normal;
+}
+
+table.ergebnis[data-ton='soll'] td.abw {
+  background: var(--abw-soll);
+  color: var(--abw-soll-text);
+  box-shadow: inset 0 0 0 1px var(--abw-soll-kante);
+  font-style: normal;
+}
+
+table.ergebnis td.abw {
+  cursor: help;
+}
+
+/* Ganze Zeilen: zu viel (deine Tabelle), fehlt (erwartete Tabelle),
+   an falscher Position (deine Tabelle, bei falscher Sortierung). */
+table.ergebnis tbody tr[data-abw] td:first-child {
+  box-shadow: inset 3px 0 0 var(--kante-hell);
+}
+
+table.ergebnis tbody tr[data-abw='extra'] {
+  background: var(--abw-ist);
+}
+table.ergebnis tbody tr[data-abw='extra'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--abw-ist-kante);
+}
+
+table.ergebnis tbody tr[data-abw='fehlt'] {
+  background: var(--abw-soll);
+}
+table.ergebnis tbody tr[data-abw='fehlt'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--abw-soll-kante);
+}
+
+table.ergebnis tbody tr[data-abw='verschoben'] {
+  background: var(--abw-verschoben);
+}
+table.ergebnis tbody tr[data-abw='verschoben'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--signal);
+}
+
+/* Ganze Spalten an falscher Stelle */
+table.ergebnis td.abw-spalte {
+  background: var(--abw-verschoben);
+}
+table.ergebnis thead th.abw-spalte {
+  color: var(--signal);
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+
+/* Legende ueber den Tabellen */
+.abw-legende {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.abw-legende-hilfe {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--leise);
+}
+
+.abw-muster {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.abw-muster-ist {
+  background: var(--abw-ist);
+  box-shadow: inset 0 0 0 1px var(--abw-ist-kante);
+}
+
+.abw-muster-soll {
+  background: var(--abw-soll);
+  box-shadow: inset 0 0 0 1px var(--abw-soll-kante);
+}

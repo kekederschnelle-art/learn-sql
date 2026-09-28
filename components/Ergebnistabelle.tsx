@@ -1,6 +1,6 @@
 'use client';
 
-import type { QueryResult } from '@/lib/compare';
+import type { QueryResult, TabellenMarkierung } from '@/lib/compare';
 
 function istZahl(v: unknown) {
   if (typeof v === 'number' || typeof v === 'bigint') return true;
@@ -15,15 +15,24 @@ function zeige(v: unknown): string {
   return String(v);
 }
 
+const ZEILEN_TITEL = {
+  extra: 'Diese Zeile gehört nicht ins Ergebnis',
+  fehlt: 'Diese Zeile fehlt in deinem Ergebnis',
+  verschoben: 'Richtige Zeile, aber an falscher Position',
+} as const;
+
 type Props = {
   titel: string;
   ergebnis: QueryResult;
   maxZeilen?: number;
+  /** V6: Abweichungen zur anderen Tabelle, die hervorgehoben werden. */
+  markierung?: TabellenMarkierung | null;
 };
 
-export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200 }: Props) {
+export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, markierung }: Props) {
   const { felder, zeilen } = ergebnis;
   const sichtbar = zeilen.slice(0, maxZeilen);
+  const gegenseite = markierung?.ton === 'ist' ? 'Erwartet' : 'Deins';
 
   return (
     <section className="tabellenblock">
@@ -43,31 +52,57 @@ export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200 }: Pr
         </div>
       ) : (
         <div className="tabellenhuelle">
-          <table className="ergebnis">
+          <table className="ergebnis" data-ton={markierung?.ton}>
             <thead>
               <tr>
-                {felder.map((f, i) => (
-                  <th key={`${f}-${i}`}>{f}</th>
+                {felder.map((f, j) => (
+                  <th
+                    key={`${f}-${j}`}
+                    className={markierung?.spalten.has(j) ? 'abw-spalte' : undefined}
+                  >
+                    {f}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {sichtbar.map((z, i) => (
-                <tr key={i}>
-                  {felder.map((f, j) => {
-                    const wert = z[f];
-                    const leer = wert === null || wert === undefined;
-                    return (
-                      <td
-                        key={`${f}-${j}`}
-                        className={leer ? 'null' : istZahl(wert) ? 'zahl' : undefined}
-                      >
-                        {zeige(wert)}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {sichtbar.map((z, i) => {
+                const zeilenArt = markierung?.zeilen.get(i);
+                return (
+                  <tr
+                    key={i}
+                    data-abw={zeilenArt}
+                    title={zeilenArt ? ZEILEN_TITEL[zeilenArt] : undefined}
+                  >
+                    {felder.map((f, j) => {
+                      const wert = z[f];
+                      const leer = wert === null || wert === undefined;
+                      const schluessel = `${i}:${j}`;
+                      const abw = markierung?.zellen.has(schluessel) ?? false;
+                      const klassen = [
+                        leer ? 'null' : istZahl(wert) ? 'zahl' : '',
+                        abw ? 'abw' : '',
+                        markierung?.spalten.has(j) ? 'abw-spalte' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ');
+                      return (
+                        <td
+                          key={`${f}-${j}`}
+                          className={klassen || undefined}
+                          title={
+                            abw
+                              ? `${gegenseite}: ${zeige(markierung!.zellen.get(schluessel))}`
+                              : undefined
+                          }
+                        >
+                          {zeige(wert)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {zeilen.length > sichtbar.length && (

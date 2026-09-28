@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Archivo, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
+import './v6.css';
 
 const archivo = Archivo({
   subsets: ['latin'],

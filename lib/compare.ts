@@ -169,3 +169,165 @@ export function vergleiche(
 
   return { korrekt: false, meldung: 'Die Werte stimmen nicht.', details };
 }
+
+// ═════════════════════════════════════════ V6: Abweichungen markieren ══
+
+/**
+ * Was in einer der beiden Tabellen hervorgehoben wird.
+ * `ton`: 'ist' = deine Ausgabe (rot), 'soll' = die erwartete Ausgabe (grün).
+ */
+export type TabellenMarkierung = {
+  ton: 'ist' | 'soll';
+  /** Abweichende Zellen. Schluessel `${zeile}:${spalte}`, Wert = Gegenstueck der anderen Seite. */
+  zellen: Map<string, unknown>;
+  /** Ganze Zeilen: zu viel, fehlt, oder an falscher Position. */
+  zeilen: Map<number, 'extra' | 'fehlt' | 'verschoben'>;
+  /** Spalten, die inhaltlich an anderer Stelle stehen. */
+  spalten: Set<number>;
+};
+
+export type Abweichungen = {
+  eigene: TabellenMarkierung;
+  erwartet: TabellenMarkierung;
+};
+
+const zeilenText = (z: string[]) => z.join(ZELL_TRENNER);
+
+function leereMarkierung(ton: 'ist' | 'soll'): TabellenMarkierung {
+  return { ton, zellen: new Map(), zeilen: new Map(), spalten: new Set() };
+}
+
+/**
+ * Ermittelt, welche Zellen/Zeilen/Spalten sich zwischen beiden Ergebnissen
+ * unterscheiden. Die Indizes beziehen sich auf die Zeilen so, wie sie
+ * angezeigt werden - nicht auf eine sortierte Fassung.
+ *
+ * Gibt null zurueck, wenn sich nichts sinnvoll markieren laesst
+ * (unterschiedliche Spaltenanzahl: dann passt keine Zelle zur anderen).
+ */
+export function abweichungen(
+  erwartet: QueryResult,
+  tatsaechlich: QueryResult,
+  reihenfolgeZaehlt: boolean,
+): Abweichungen | null {
+  const breite = erwartet.felder.length;
+  if (breite === 0 || breite !== tatsaechlich.felder.length) return null;
+
+  const mE = erwartet.zeilen.map((z) => erwartet.felder.map((f) => normWert(z[f])));
+  const mI = tatsaechlich.zeilen.map((z) => tatsaechlich.felder.map((f) => normWert(z[f])));
+  const roh = (res: QueryResult, zeile: number, spalte: number) =>
+    res.zeilen[zeile]?.[res.felder[spalte]];
+
+  const out: Abweichungen = { eigene: leereMarkierung('ist'), erwartet: leereMarkierung('soll') };
+
+  // Fall: Spalten vertauscht. Jede Spalte als Multimenge ihrer Werte - stimmen
+  // die Mengen ueberein, nur an anderer Position, werden die Spalten markiert.
+  if (mE.length === mI.length) {
+    const sig = (m: string[][], j: number) => m.map((z) => z[j]).sort().join(ZELL_TRENNER);
+    const sE = Array.from({ length: breite }, (_, j) => sig(mE, j));
+    const sI = Array.from({ length: breite }, (_, j) => sig(mI, j));
+    const falschPlatziert = sI.map((s, j) => s !== sE[j]);
+    if (
+      falschPlatziert.some(Boolean) &&
+      [...sE].sort().join(SPALT_TRENNER) === [...sI].sort().join(SPALT_TRENNER)
+    ) {
+      falschPlatziert.forEach((f, j) => {
+        if (f) {
+          out.eigene.spalten.add(j);
+          out.erwartet.spalten.add(j);
+        }
+      });
+      return out;
+    }
+  }
+
+  // Fall: dieselben Zeilen, andere Reihenfolge. Markiert wird jede Zeile,
+  // die nicht an ihrer erwarteten Position steht.
+  const alsMenge = (m: string[][]) => m.map(zeilenText).sort().join(SPALT_TRENNER);
+  if (reihenfolgeZaehlt && mE.length === mI.length && alsMenge(mE) === alsMenge(mI)) {
+    mI.forEach((z, i) => {
+      if (zeilenText(z) !== zeilenText(mE[i])) out.eigene.zeilen.set(i, 'verschoben');
+    });
+    return out;
+  }
+
+  // Fall: Reihenfolge zaehlt, gleiche Zeilenzahl -> Zeile i gegen Zeile i.
+  if (reihenfolgeZaehlt && mE.length === mI.length) {
+    mI.forEach((z, i) => {
+      z.forEach((w, j) => {
+        if (w !== mE[i][j]) {
+          out.eigene.zellen.set(`${i}:${j}`, roh(erwartet, i, j));
+          out.erwartet.zellen.set(`${i}:${j}`, roh(tatsaechlich, i, j));
+        }
+      });
+    });
+    return out;
+  }
+
+  // Allgemeiner Fall: Zeilen einander zuordnen.
+  // 1. Identische Zeilen paaren - die sind in Ordnung.
+  const frei = new Map<string, number[]>();
+  mE.forEach((z, i) => {
+    const k = zeilenText(z);
+    if (!frei.has(k)) frei.set(k, []);
+    frei.get(k)!.push(i);
+  });
+  const offenIst: number[] = [];
+  mI.forEach((z, i) => {
+    const liste = frei.get(zeilenText(z));
+    if (liste && liste.length) liste.shift();
+    else offenIst.push(i);
+  });
+  const offenSoll = [...frei.values()].flat().sort((a, b) => a - b);
+
+  // 2. Uebrige Zeilen der aehnlichsten zuordnen - aber nur, wenn mindestens
+  //    die Haelfte der Spalten uebereinstimmt. Sonst ist es keine "leicht
+  //    falsche" Zeile, sondern eine, die gar nicht hingehoert.
+  const vergeben = new Set<number>();
+  const mindestens = Math.max(1, Math.ceil(breite / 2));
+  for (const i of offenIst) {
+    let beste = -1;
+    let besteTreffer = -1;
+    for (const e of offenSoll) {
+      if (vergeben.has(e)) continue;
+      let treffer = 0;
+      for (let j = 0; j < breite; j++) if (mI[i][j] === mE[e][j]) treffer++;
+      if (treffer > besteTreffer) {
+        besteTreffer = treffer;
+        beste = e;
+      }
+    }
+    if (beste >= 0 && breite > 1 && besteTreffer >= mindestens) {
+      vergeben.add(beste);
+      for (let j = 0; j < breite; j++) {
+        if (mI[i][j] !== mE[beste][j]) {
+          out.eigene.zellen.set(`${i}:${j}`, roh(erwartet, beste, j));
+          out.erwartet.zellen.set(`${beste}:${j}`, roh(tatsaechlich, i, j));
+        }
+      }
+    } else {
+      out.eigene.zeilen.set(i, 'extra');
+    }
+  }
+  for (const e of offenSoll) {
+    if (!vergeben.has(e)) out.erwartet.zeilen.set(e, 'fehlt');
+  }
+  return out;
+}
+
+/** Kurzfassung fuer die Legende ueber den Tabellen. */
+export function abweichungsText(a: Abweichungen): string | null {
+  const zellen = a.eigene.zellen.size;
+  const extra = [...a.eigene.zeilen.values()].filter((v) => v === 'extra').length;
+  const verschoben = [...a.eigene.zeilen.values()].filter((v) => v === 'verschoben').length;
+  const fehlt = a.erwartet.zeilen.size;
+  const spalten = a.eigene.spalten.size;
+  const teile: string[] = [];
+  if (spalten) teile.push(`${spalten} ${spalten === 1 ? 'Spalte' : 'Spalten'} an falscher Stelle`);
+  if (zellen) teile.push(`${zellen} ${zellen === 1 ? 'Zelle weicht' : 'Zellen weichen'} ab`);
+  if (verschoben)
+    teile.push(`${verschoben} ${verschoben === 1 ? 'Zeile steht' : 'Zeilen stehen'} an falscher Position`);
+  if (extra) teile.push(`${extra} ${extra === 1 ? 'Zeile' : 'Zeilen'} zu viel`);
+  if (fehlt) teile.push(`${fehlt} ${fehlt === 1 ? 'Zeile fehlt' : 'Zeilen fehlen'}`);
+  return teile.length ? teile.join(' · ') : null;
+}
