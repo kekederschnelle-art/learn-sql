@@ -8,6 +8,8 @@ import { tasks } from '@/lib/tasks';
 import {
   ladeGeloest,
   ladeGelesen,
+  ladeEntwuerfe,
+  ladeLog,
   allesZuruecksetzen,
   sicherungHerunterladen,
   standEinlesen,
@@ -20,11 +22,19 @@ export default function Home() {
   const [meldung, setMeldung] = useState<{ ton: 'ok' | 'fehler'; text: string } | null>(
     null,
   );
+  // V7.1: Zwei Schritte statt eines Browser-Dialogs. Ein confirm() klickt man
+  // reflexhaft weg; diese Abfrage steht auf der Seite und sagt, was weg ist.
+  const [loeschenOffen, setLoeschenOffen] = useState(false);
+  const [bestand, setBestand] = useState({ entwuerfe: 0, laeufe: 0 });
   const dateiFeld = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setGeloest(ladeGeloest());
     setGelesen(ladeGelesen());
+    setBestand({
+      entwuerfe: Object.keys(ladeEntwuerfe()).length,
+      laeufe: ladeLog().length,
+    });
     setGeladen(true);
   }, []);
 
@@ -60,61 +70,80 @@ export default function Home() {
     }
     setGeloest(ladeGeloest());
     setGelesen(ladeGelesen());
+    setBestand({
+      entwuerfe: Object.keys(ladeEntwuerfe()).length,
+      laeufe: ladeLog().length,
+    });
+
+    const teile: string[] = [];
+    if (ergebnis.geloestDazu)
+      teile.push(
+        `${ergebnis.geloestDazu} gelöste ${
+          ergebnis.geloestDazu === 1 ? 'Aufgabe' : 'Aufgaben'
+        }`,
+      );
+    if (ergebnis.entwuerfeDazu)
+      teile.push(
+        `${ergebnis.entwuerfeDazu} ${ergebnis.entwuerfeDazu === 1 ? 'Entwurf' : 'Entwürfe'}`,
+      );
+    if (ergebnis.laeufeDazu)
+      teile.push(
+        `${ergebnis.laeufeDazu} ${
+          ergebnis.laeufeDazu === 1 ? 'Prüfungsdurchgang' : 'Prüfungsdurchgänge'
+        }`,
+      );
+
     setMeldung({
       ton: 'ok',
-      text:
-        ergebnis.geloestDazu === 0 && ergebnis.entwuerfeDazu === 0
-          ? 'Eingelesen – es war nichts Neues dabei.'
-          : `Eingelesen: ${ergebnis.geloestDazu} gelöste ${
-              ergebnis.geloestDazu === 1 ? 'Aufgabe' : 'Aufgaben'
-            } und ${ergebnis.entwuerfeDazu} ${
-              ergebnis.entwuerfeDazu === 1 ? 'Entwurf' : 'Entwürfe'
-            } dazugekommen.`,
+      text: teile.length
+        ? `Eingelesen: ${teile.join(', ')} dazugekommen.`
+        : 'Eingelesen – es war nichts Neues dabei.',
     });
   }
 
   return (
     <div className="start">
-      <div className="start-oben">
-        <header className="start-kopf">
-          <Link href="/" className="zurueck">
-            ← Start
+      <header className="start-kopf">
+        <Link href="/" className="zurueck">
+          ← Start
+        </Link>
+        <h1>Alle Stufen</h1>
+        <p className="lead">
+          SQL an einem Gebrauchtwagen-Marktplatz lernen. Neun Stufen, jede mit einer
+          Einführung und acht Aufgaben. Der Datensatz wächst mit: Was du auf Stufe 1
+          gelernt hast, brauchst du auf Stufe 7 noch.
+        </p>
+        <p className="lead leise">
+          Die Datenbank läuft in deinem Browser. Nichts wird hochgeladen, nichts kann
+          kaputtgehen.
+        </p>
+      </header>
+
+      {/* V7.1: Die beiden Modi stehen nebeneinander über die volle Breite,
+          zwischen Einleitung und Fortschritt - statt schmal in der rechten Spalte. */}
+      <div className="modus-karten">
+        <aside className="frei-karte">
+          <h2>Prüfung</h2>
+          <p>
+            Zufällige Aufgaben quer über die Stufen, auf Wunsch mit Zeitlimit. Keine
+            Hinweise, keine Lösung – die Auswertung kommt erst am Ende. Die Ergebnisse
+            landen im Prüfungslog.
+          </p>
+          <Link href="/pruefung" className="knopf knopf-primaer">
+            Prüfung starten
           </Link>
-          <h1>Alle Stufen</h1>
-          <p className="lead">
-            SQL an einem Gebrauchtwagen-Marktplatz lernen. Neun Stufen, jede mit
-            einer Einführung und acht Aufgaben. Der Datensatz wächst mit: Was du auf
-            Stufe 1 gelernt hast, brauchst du auf Stufe 7 noch.
-          </p>
-          <p className="lead leise">
-            Die Datenbank läuft in deinem Browser. Nichts wird hochgeladen, nichts
-            kann kaputtgehen.
-          </p>
-        </header>
+        </aside>
 
-        <div className="modus-karten">
-          <aside className="frei-karte">
-            <h2>Prüfung</h2>
-            <p>
-              Zufällige Aufgaben quer über die Stufen, auf Wunsch mit Zeitlimit. Keine
-              Hinweise, keine Lösung – die Auswertung kommt erst am Ende.
-            </p>
-            <Link href="/pruefung" className="knopf knopf-primaer">
-              Prüfung starten
-            </Link>
-          </aside>
-
-          <aside className="frei-karte">
-            <h2>Freier Modus</h2>
-            <p>
-              Leerer Editor ohne Aufgabe und Prüfung. Datenstand frei wählbar, schreiben
-              erlaubt – ein Knopf baut alles wieder auf.
-            </p>
-            <Link href="/frei" className="knopf">
-              Editor öffnen
-            </Link>
-          </aside>
-        </div>
+        <aside className="frei-karte">
+          <h2>Freier Modus</h2>
+          <p>
+            Leerer Editor ohne Aufgabe und Prüfung. Datenstand frei wählbar, schreiben
+            erlaubt – ein Knopf baut alles wieder auf.
+          </p>
+          <Link href="/frei" className="knopf">
+            Editor öffnen
+          </Link>
+        </aside>
       </div>
 
       {geladen && (
@@ -194,7 +223,7 @@ export default function Home() {
             <p className="leise">
               Dein Fortschritt liegt nur in diesem Browser. Eine Sicherung nimmst du mit
               auf ein anderes Gerät – beim Einlesen wird zusammengeführt, nichts
-              überschrieben.
+              überschrieben. Der Prüfungslog ist mit dabei.
             </p>
             <div className="sicherung-knoepfe">
               <button
@@ -214,22 +243,61 @@ export default function Home() {
                 onChange={dateiGewaehlt}
                 hidden
               />
-              {gesamtGeloest > 0 && (
+              {gesamtGeloest > 0 && !loeschenOffen && (
                 <button
                   className="knopf knopf-still"
                   onClick={() => {
-                    if (confirm('Gelöste Aufgaben und gespeicherte Queries löschen?')) {
-                      allesZuruecksetzen();
-                      setGeloest([]);
-                      setGelesen([]);
-                      setMeldung(null);
-                    }
+                    setLoeschenOffen(true);
+                    setMeldung(null);
                   }}
                 >
                   Fortschritt zurücksetzen
                 </button>
               )}
             </div>
+
+            {/* Zweiter Schritt: benennt, was verschwindet, und trennt den
+                gefährlichen Knopf räumlich vom harmlosen darüber. */}
+            {loeschenOffen && (
+              <div className="gefahr" role="alertdialog" aria-label="Fortschritt löschen">
+                <p className="gefahr-frage">Wirklich alles löschen?</p>
+                <p className="gefahr-was">
+                  Weg sind dann {gesamtGeloest}{' '}
+                  {gesamtGeloest === 1 ? 'gelöste Aufgabe' : 'gelöste Aufgaben'}
+                  {bestand.entwuerfe > 0 &&
+                    `, ${bestand.entwuerfe} ${
+                      bestand.entwuerfe === 1 ? 'gespeicherte Query' : 'gespeicherte Queries'
+                    }`}
+                  {bestand.laeufe > 0 &&
+                    `, ${bestand.laeufe} ${
+                      bestand.laeufe === 1 ? 'Prüfungsdurchgang' : 'Prüfungsdurchgänge'
+                    }`}{' '}
+                  und die gelesenen Einführungen. Das lässt sich nicht rückgängig machen.
+                </p>
+                <p className="gefahr-was leise">
+                  Sicher dir den Stand vorher, wenn du ihn vielleicht doch noch brauchst.
+                </p>
+                <div className="gefahr-knoepfe">
+                  <button className="knopf" onClick={() => setLoeschenOffen(false)}>
+                    Abbrechen
+                  </button>
+                  <button
+                    className="knopf knopf-gefahr"
+                    onClick={() => {
+                      allesZuruecksetzen();
+                      setGeloest([]);
+                      setGelesen([]);
+                      setBestand({ entwuerfe: 0, laeufe: 0 });
+                      setLoeschenOffen(false);
+                      setMeldung({ ton: 'ok', text: 'Alles gelöscht. Du fängst neu an.' });
+                    }}
+                  >
+                    Ja, alles löschen
+                  </button>
+                </div>
+              </div>
+            )}
+
             {meldung && (
               <p className="sicherung-meldung" data-ton={meldung.ton}>
                 {meldung.text}

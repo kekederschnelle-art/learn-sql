@@ -17,7 +17,16 @@ import {
   type RohErgebnis,
 } from '@/lib/db';
 import { vergleiche, type QueryResult, type VergleichsErgebnis } from '@/lib/compare';
-import { ladeGeloest, speichereGeloest } from '@/lib/fortschritt';
+import {
+  ladeGeloest,
+  ladeLog,
+  logLeeren,
+  schwacheStufen,
+  speichereGeloest,
+  speichereLauf,
+  type AufgabenStand,
+  type PruefungsLauf,
+} from '@/lib/fortschritt';
 import {
   ANZAHL_OPTIONEN,
   MINUTEN_OPTIONEN,
@@ -49,6 +58,19 @@ type Probe =
 
 type Phase = 'konfig' | 'laeuft' | 'wertet' | 'fertig';
 
+const MARKE = { korrekt: '✓', falsch: '✗', leer: '–' } as const;
+
+function standVon(e: Ergebnis): AufgabenStand['stand'] {
+  if (e.urteil?.korrekt) return 'korrekt';
+  return e.sql ? 'falsch' : 'leer';
+}
+
+/** Ton für den Rand eines Log-Eintrags – dieselbe Skala wie die Auswertung. */
+function tonVon(lauf: PruefungsLauf): 'gut' | 'mittel' | 'schwach' {
+  const richtig = lauf.ergebnisse.filter((e) => e.stand === 'korrekt').length;
+  return einordnung(richtig, lauf.ergebnisse.length).ton;
+}
+
 export default function Pruefung() {
   const [phase, setPhase] = useState<Phase>('konfig');
   const [konfig, setKonfig] = useState<PruefungsKonfig>(STANDARD_KONFIG);
@@ -66,6 +88,7 @@ export default function Pruefung() {
   const [ergebnisse, setErgebnisse] = useState<Ergebnis[]>([]);
   const [dauer, setDauer] = useState(0);
   const [gutgeschrieben, setGutgeschrieben] = useState(0);
+  const [log, setLog] = useState<PruefungsLauf[]>([]);
 
   // Beim ersten Laden den Bereich auf das setzen, was schon gelernt wurde.
   // Wer noch nichts gelöst hat, bekommt alles angeboten.
@@ -75,6 +98,7 @@ export default function Pruefung() {
       .filter((t) => geloest.includes(t.id))
       .reduce((m, t) => Math.max(m, t.level), 0);
     setKonfig((k) => ({ ...k, bisLevel: hoechste > 0 ? hoechste : MAX_LEVEL }));
+    setLog(ladeLog());
   }, []);
 
   const aufgabe = aufgaben[aktiv];
@@ -106,8 +130,8 @@ export default function Pruefung() {
     return () => window.clearInterval(id);
   }, [phase]);
 
-  // Versehentliches Schließen kostet den ganzen Durchgang - der Zustand liegt
-  // bewusst nur im Speicher, damit eine Prüfung nicht halb fertig herumliegt.
+  // Versehentliches Schließen kostet den laufenden Durchgang - der Zustand
+  // liegt bewusst nur im Speicher. Erst das Ergebnis landet im Log.
   useEffect(() => {
     if (phase !== 'laeuft') return;
     const warnen = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -138,7 +162,8 @@ export default function Pruefung() {
 
   const abgeben = useCallback(async () => {
     setPhase('wertet');
-    setDauer(Math.round((Date.now() - startZeit) / 1000));
+    const gebraucht = Math.round((Date.now() - startZeit) / 1000);
+    setDauer(gebraucht);
 
     const out: Ergebnis[] = [];
     for (const t of aufgaben) {
@@ -182,9 +207,34 @@ export default function Pruefung() {
     if (dazu.length) speichereGeloest([...vorher, ...dazu]);
     setGutgeschrieben(dazu.length);
 
+    // V7.1: Der Durchgang kommt in den Log - nur das Ergebnis, keine Queries.
+    const jetztMs = Date.now();
+    speichereLauf({
+      id: String(jetztMs),
+      erstellt: new Date(jetztMs).toISOString(),
+      dauer: gebraucht,
+      konfig: {
+        anzahl: aufgaben.length,
+        vonLevel: aufgaben[0]?.level ?? konfig.vonLevel,
+        bisLevel: aufgaben[aufgaben.length - 1]?.level ?? konfig.bisLevel,
+        minuten: konfig.mitTimer ? konfig.minuten : null,
+      },
+      ergebnisse: out.map((e) => {
+        const stand = standVon(e);
+        const eintrag: AufgabenStand = { id: e.task.id, level: e.task.level, stand };
+        if (stand === 'falsch') {
+          eintrag.meldung = e.fehler
+            ? 'Die Query lief nicht durch.'
+            : (e.urteil?.meldung ?? '');
+        }
+        return eintrag;
+      }),
+    });
+    setLog(ladeLog());
+
     setErgebnisse(out);
     setPhase('fertig');
-  }, [aufgaben, antworten, startZeit]);
+  }, [aufgaben, antworten, startZeit, konfig]);
 
   // Die Uhr darf die Prüfung beenden, ohne dass abgeben() neu gebunden wird.
   const abgebenRef = useRef(abgeben);
@@ -218,6 +268,8 @@ export default function Pruefung() {
   nurAusfuehrenRef.current = nurAusfuehren;
   const nurAusfuehrenStabil = useCallback(() => nurAusfuehrenRef.current(), []);
 
+  const schwach = useMemo(() => schwacheStufen(log), [log]);
+
   // ════════════════════════════════════════════════════════════ Konfig ══
 
   if (phase === 'konfig') {
@@ -236,7 +288,8 @@ export default function Pruefung() {
             Auswertung. Du darfst deine Query ausführen, um zu sehen, was sie liefert.
           </p>
           <p className="lead leise">
-            Der Durchgang liegt nur im Arbeitsspeicher. Schließt du den Tab, ist er weg.
+            Der laufende Durchgang liegt nur im Arbeitsspeicher. Schließt du den Tab, ist
+            er weg – gespeichert wird erst das Ergebnis.
           </p>
         </header>
 
@@ -333,6 +386,92 @@ export default function Pruefung() {
             Lieber üben
           </Link>
         </div>
+
+        {log.length > 0 && (
+          <section className="pruef-log">
+            <div className="pruef-log-kopf">
+              <h2>Letzte Durchgänge</h2>
+              <button
+                className="knopf knopf-still"
+                onClick={() => {
+                  if (confirm('Den Prüfungslog löschen? Der Fortschritt bleibt.')) {
+                    logLeeren();
+                    setLog([]);
+                  }
+                }}
+              >
+                Log leeren
+              </button>
+            </div>
+
+            {schwach.length > 0 && (
+              <p className="leise pruef-log-lead">
+                Am häufigsten danebengegangen:{' '}
+                {schwach.slice(0, 3).map((s, i) => (
+                  <span key={s.level}>
+                    {i > 0 && ', '}
+                    <Link href={`/uebung/${s.level}`}>Stufe {s.level}</Link> ({s.daneben}×)
+                  </span>
+                ))}
+                . Gespeichert werden nur die Ergebnisse, nicht deine Eingaben.
+              </p>
+            )}
+
+            <ol className="pruef-liste">
+              {log.map((lauf) => {
+                const richtig = lauf.ergebnisse.filter((e) => e.stand === 'korrekt').length;
+                const datum = new Date(lauf.erstellt).toLocaleString('de-DE', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                });
+                return (
+                  <li key={lauf.id}>
+                    <details className="pruef-zeile" data-ton={tonVon(lauf)}>
+                      <summary>
+                        <span className="mono pruef-log-score">
+                          {richtig}/{lauf.ergebnisse.length}
+                        </span>
+                        <span className="pruef-punkte" aria-hidden="true">
+                          {lauf.ergebnisse.map((e, i) => (
+                            <span key={i} className="pruef-punkt" data-stand={e.stand} />
+                          ))}
+                        </span>
+                        <span className="pruef-log-meta mono leise">
+                          Stufe {lauf.konfig.vonLevel}
+                          {lauf.konfig.bisLevel !== lauf.konfig.vonLevel &&
+                            `–${lauf.konfig.bisLevel}`}{' '}
+                          · {lauf.konfig.minuten ? `${lauf.konfig.minuten} min` : 'ohne Limit'} ·{' '}
+                          {alsUhrzeit(lauf.dauer)}
+                        </span>
+                        <span className="mono leise pruef-log-datum">{datum}</span>
+                      </summary>
+
+                      <div className="pruef-zeile-inhalt">
+                        <ol className="pruef-log-details">
+                          {lauf.ergebnisse.map((e, i) => (
+                            <li key={`${e.id}-${i}`} data-stand={e.stand}>
+                              <span className="mono pruef-zeile-nr">
+                                {String(i + 1).padStart(2, '0')}
+                              </span>
+                              <span className="pruef-log-titel">
+                                {tasks.find((t) => t.id === e.id)?.titel ?? e.id}
+                              </span>
+                              <span className="mono leise">Stufe {e.level}</span>
+                              <span className="pruef-zeile-marke">{MARKE[e.stand]}</span>
+                              {e.meldung && (
+                                <span className="pruef-log-grund leise">{e.meldung}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </details>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
       </div>
     );
   }
@@ -357,10 +496,8 @@ export default function Pruefung() {
     const bearbeitet = ergebnisse.filter((e) => e.sql).length;
     const richtig = ergebnisse.filter((e) => e.urteil?.korrekt).length;
     const note = einordnung(richtig, ergebnisse.length);
-    const schwach = [
-      ...new Set(
-        ergebnisse.filter((e) => !e.urteil?.korrekt).map((e) => e.task.level),
-      ),
+    const schwachJetzt = [
+      ...new Set(ergebnisse.filter((e) => !e.urteil?.korrekt).map((e) => e.task.level)),
     ].sort((a, b) => a - b);
 
     return (
@@ -388,10 +525,10 @@ export default function Pruefung() {
           </div>
         </div>
 
-        {schwach.length > 0 && (
+        {schwachJetzt.length > 0 && (
           <p className="lead">
             Nicht gesessen hat es bei{' '}
-            {schwach.map((l, i) => (
+            {schwachJetzt.map((l, i) => (
               <span key={l}>
                 {i > 0 && ', '}
                 <Link href={`/uebung/${l}`}>Stufe {l}</Link>
@@ -403,11 +540,7 @@ export default function Pruefung() {
 
         <ol className="pruef-liste">
           {ergebnisse.map((e, i) => {
-            const zustand = e.urteil?.korrekt
-              ? 'korrekt'
-              : e.sql
-                ? 'falsch'
-                : 'leer';
+            const zustand = standVon(e);
             return (
               <li key={e.task.id}>
                 <details className="pruef-zeile" data-zustand={zustand}>
@@ -417,9 +550,7 @@ export default function Pruefung() {
                     </span>
                     <span className="pruef-zeile-titel">{e.task.titel}</span>
                     <span className="mono leise">Stufe {e.task.level}</span>
-                    <span className="pruef-zeile-marke">
-                      {zustand === 'korrekt' ? '✓' : zustand === 'falsch' ? '✗' : '–'}
-                    </span>
+                    <span className="pruef-zeile-marke">{MARKE[zustand]}</span>
                   </summary>
 
                   <div className="pruef-zeile-inhalt">
@@ -479,6 +610,11 @@ export default function Pruefung() {
             );
           })}
         </ol>
+
+        <p className="leise pruef-log-lead">
+          Im Log bleiben nur die Ergebnisse dieses Durchgangs stehen – deine Antworten
+          oben siehst du nur jetzt.
+        </p>
 
         <div className="land-cta">
           <button className="knopf knopf-primaer" onClick={() => setPhase('konfig')}>
