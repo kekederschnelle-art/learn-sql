@@ -35,21 +35,43 @@ const farben = HighlightStyle.define([
   { tag: [t.name, t.variableName, t.propertyName], color: '#e6eae5' },
 ]);
 
+/**
+ * V6: Markierung sichtbar gemacht.
+ *
+ * Bis V5 stand hier '&.cm-focused .cm-selectionBackground' mit #3a4f47.
+ * Zwei Probleme: Das Grau-Gruen war kaum vom Hintergrund zu unterscheiden,
+ * und im fokussierten Editor griff es gar nicht - CodeMirrors eigenes
+ * Dunkel-Theme hat dafuer einen spezifischeren Selektor
+ * ('&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground')
+ * und setzte #233, also praktisch unsichtbar.
+ *
+ * Jetzt: exakt derselbe Selektor (gewinnt, weil unser Theme spaeter kommt)
+ * und ein Blau, das sich klar vom Gruen abhebt. Text darauf bleibt lesbar.
+ */
+const MARKIERUNG = '#2f5f8f';
+const MARKIERUNG_UNFOKUSSIERT = '#2a4660';
+
 const rahmen = EditorView.theme(
   {
     '&': { color: '#e6eae5', backgroundColor: 'transparent' },
     '.cm-content': { caretColor: '#f0c24a', padding: '12px 0' },
     '.cm-line': { padding: '0 14px' },
     '&.cm-focused .cm-cursor': { borderLeftColor: '#f0c24a', borderLeftWidth: '2px' },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-      backgroundColor: '#3a4f47',
+    '& > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+      background: MARKIERUNG_UNFOKUSSIERT,
     },
+    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+      background: MARKIERUNG,
+    },
+    '.cm-content ::selection': { backgroundColor: MARKIERUNG },
     '.cm-gutters': {
       backgroundColor: '#1e2a26',
       color: '#8ea398',
       borderRight: '1px solid #33453e',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+    // Die aktive Zeile liegt UEBER der Markierung. Deshalb nur ein Hauch,
+    // sonst schluckt sie die Markierung in der Zeile, in der der Cursor steht.
+    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.025)' },
     '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.03)', color: '#cfd8d1' },
     '.cm-matchingBracket': { backgroundColor: '#3a4f47', outline: '1px solid #5b7369' },
     '.cm-tooltip': {

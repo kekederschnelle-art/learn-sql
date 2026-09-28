@@ -14,7 +14,13 @@ import {
   fuehreAusUndLiesZustand,
   schemaLesen,
 } from '@/lib/db';
-import { vergleiche, type QueryResult, type VergleichsErgebnis } from '@/lib/compare';
+import {
+  abweichungen,
+  abweichungsText,
+  vergleiche,
+  type QueryResult,
+  type VergleichsErgebnis,
+} from '@/lib/compare';
 import {
   ladeEntwuerfe,
   ladeGeloest,
@@ -134,6 +140,13 @@ export default function Uebung({ level }: { level: number }) {
 
   pruefenRef.current = pruefen;
   const pruefenStabil = useCallback(() => pruefenRef.current(), []);
+
+  // V6: Bei falscher Loesung die abweichenden Zellen/Zeilen bestimmen.
+  const abw = useMemo(() => {
+    if (lauf.art !== 'geprueft' || lauf.urteil.korrekt || !aufgabe) return null;
+    return abweichungen(lauf.erwartet, lauf.eigene, aufgabe.reihenfolgeZaehlt);
+  }, [lauf, aufgabe]);
+  const abwText = abw ? abweichungsText(abw) : null;
 
   if (!aufgabe) {
     return (
@@ -314,16 +327,28 @@ export default function Uebung({ level }: { level: number }) {
 
         {lauf.art === 'geprueft' && (
           <div className="tabellen">
+            {abwText && (
+              <div className="abw-legende mono">
+                <span>{abwText}</span>
+                <span className="abw-legende-hilfe">
+                  <span className="abw-muster abw-muster-ist" aria-hidden="true" /> deins
+                  <span className="abw-muster abw-muster-soll" aria-hidden="true" /> erwartet
+                  · Maus über eine markierte Zelle zeigt den Gegenwert
+                </span>
+              </div>
+            )}
             <Ergebnistabelle
               titel={
                 aufgabe.art === 'zustand' ? 'Zustand nach deinen Anweisungen' : 'Dein Ergebnis'
               }
               ergebnis={lauf.eigene}
+              markierung={abw?.eigene}
             />
             {!lauf.urteil.korrekt && (
               <Ergebnistabelle
                 titel={aufgabe.art === 'zustand' ? 'Erwarteter Zustand' : 'Erwartet'}
                 ergebnis={lauf.erwartet}
+                markierung={abw?.erwartet}
               />
             )}
           </div>
