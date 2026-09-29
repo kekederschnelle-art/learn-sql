@@ -25,7 +25,17 @@ export type QueryResult = {
    */
   typen?: number[];
   zeilen: Record<string, unknown>[];
+  /**
+   * Wie viele Zeilen die Query wirklich geliefert hat. Nur gesetzt, wenn
+   * `zeilen` abgeschnitten sein kann (siehe ZEILEN_GRENZE in db-kern.ts).
+   */
+  zeilenGesamt?: number;
 };
+
+/** Zeilenzahl vor dem Abschneiden. */
+export function zeilenAnzahl(res: QueryResult): number {
+  return res.zeilenGesamt ?? res.zeilen.length;
+}
 
 export type VergleichsErgebnis = {
   korrekt: boolean;
@@ -174,11 +184,13 @@ export function vergleiche(
     };
   }
 
-  if (erwartet.zeilen.length !== tatsaechlich.zeilen.length) {
-    const diff = tatsaechlich.zeilen.length - erwartet.zeilen.length;
+  const nErwartet = zeilenAnzahl(erwartet);
+  const nIst = zeilenAnzahl(tatsaechlich);
+  if (nErwartet !== nIst || erwartet.zeilen.length !== tatsaechlich.zeilen.length) {
+    const diff = nIst - nErwartet;
     return {
       korrekt: false,
-      meldung: `Falsche Zeilenanzahl: ${tatsaechlich.zeilen.length} statt ${erwartet.zeilen.length}.`,
+      meldung: `Falsche Zeilenanzahl: ${nIst} statt ${nErwartet}.`,
       details: [
         diff > 0
           ? `${diff} Zeile(n) zu viel – prüf deine Filterbedingungen, ein fehlendes DISTINCT oder einen JOIN, der Zeilen vervielfacht.`

@@ -9,11 +9,12 @@ import { tasks, type Task } from '@/lib/tasks';
 import { lektionFuerLevel } from '@/lib/lektionen';
 import { MAX_LEVEL } from '@/lib/migrations';
 import {
+  abbrechen,
   dbFuerLevel,
+  fehlerKopf,
   fuehreAus,
   fuehreAusUndLiesZustand,
   schemaLesen,
-  TransaktionsFehler,
   type RohErgebnis,
 } from '@/lib/db';
 import { vergleiche, type QueryResult, type VergleichsErgebnis } from '@/lib/compare';
@@ -255,10 +256,7 @@ export default function Pruefung() {
     } catch (f) {
       setProbe({
         art: 'fehler',
-        kopf:
-          f instanceof TransaktionsFehler
-            ? 'Diese Anweisung ist in den Aufgaben gesperrt.'
-            : 'Postgres nimmt die Query nicht an.',
+        kopf: fehlerKopf(f),
         text: (f as Error).message,
       });
     }
@@ -726,6 +724,11 @@ export default function Pruefung() {
                 ? 'Ausführen'
                 : 'Datenstand wird gebaut …'}
           </button>
+          {probe.art === 'laeuft' && (
+            <button className="knopf knopf-gefahr" onClick={abbrechen}>
+              Abbrechen
+            </button>
+          )}
           <button
             className="knopf"
             onClick={() => setAktiv((i) => Math.max(0, i - 1))}

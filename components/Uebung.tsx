@@ -9,11 +9,12 @@ import { tasks, type Task } from '@/lib/tasks';
 import { lektionFuerLevel } from '@/lib/lektionen';
 import { migrations } from '@/lib/migrations';
 import {
+  abbrechen,
   dbFuerLevel,
+  fehlerKopf,
   fuehreAus,
   fuehreAusUndLiesZustand,
   schemaLesen,
-  TransaktionsFehler,
   type RohErgebnis,
 } from '@/lib/db';
 import {
@@ -44,8 +45,6 @@ type Lauf =
     };
 
 const START_SQL = '-- Deine Query hier\n';
-
-const FEHLER_KOPF = 'Postgres nimmt die Query nicht an.';
 
 export default function Uebung({ level }: { level: number }) {
   const stufenTasks = useMemo(() => tasks.filter((t) => t.level === level), [level]);
@@ -115,11 +114,7 @@ export default function Uebung({ level }: { level: number }) {
   const hatInhalt = !!sql.replace(/--[^\n]*/g, '').trim();
 
   const fehlerAnzeigen = useCallback((f: unknown) => {
-    const kopf =
-      f instanceof TransaktionsFehler
-        ? 'Diese Anweisung ist in den Aufgaben gesperrt.'
-        : FEHLER_KOPF;
-    setLauf({ art: 'sqlfehler', text: (f as Error).message, kopf });
+    setLauf({ art: 'sqlfehler', text: (f as Error).message, kopf: fehlerKopf(f) });
   }, []);
 
   const pruefen = useCallback(async () => {
@@ -292,6 +287,12 @@ export default function Uebung({ level }: { level: number }) {
           >
             Nur ausführen
           </button>
+
+          {lauf.art === 'laeuft' && (
+            <button className="knopf knopf-gefahr" onClick={abbrechen}>
+              Abbrechen
+            </button>
+          )}
 
           <button
             className="knopf"

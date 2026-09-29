@@ -6,14 +6,14 @@ import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
 import { lektionFuerLevel } from '@/lib/lektionen';
-import { dbFuerLevel, fuehreAus, schemaLesen } from '@/lib/db';
+import { abbrechen, dbFuerLevel, fehlerKopf, fuehreAus, schemaLesen } from '@/lib/db';
 import type { QueryResult } from '@/lib/compare';
 import { ladeGelesen, speichereGelesen } from '@/lib/fortschritt';
 
 type Ausgabe =
   | { art: 'nichts' }
   | { art: 'laeuft' }
-  | { art: 'fehler'; text: string }
+  | { art: 'fehler'; text: string; kopf: string }
   | { art: 'ergebnis'; daten: QueryResult };
 
 export default function Lektion({ level }: { level: number }) {
@@ -60,7 +60,7 @@ export default function Lektion({ level }: { level: number }) {
       const daten = await fuehreAus(db, sql);
       setAusgabe({ art: 'ergebnis', daten });
     } catch (f) {
-      setAusgabe({ art: 'fehler', text: (f as Error).message });
+      setAusgabe({ art: 'fehler', text: (f as Error).message, kopf: fehlerKopf(f) });
     }
   }, [sql, level]);
 
@@ -144,6 +144,11 @@ export default function Lektion({ level }: { level: number }) {
               >
                 {ausgabe.art === 'laeuft' ? 'Läuft …' : 'Ausführen'}
               </button>
+              {ausgabe.art === 'laeuft' && (
+                <button className="knopf knopf-gefahr" onClick={abbrechen}>
+                  Abbrechen
+                </button>
+              )}
               <span className="tastenhinweis mono">⌘/Strg + ⏎</span>
             </div>
 
@@ -157,7 +162,7 @@ export default function Lektion({ level }: { level: number }) {
               <div className="verdikt" data-art="fehler" role="status">
                 <span className="verdikt-zeichen mono">!</span>
                 <div>
-                  <div className="verdikt-kopf">Postgres nimmt die Query nicht an.</div>
+                  <div className="verdikt-kopf">{ausgabe.kopf}</div>
                   <pre>{ausgabe.text}</pre>
                 </div>
               </div>

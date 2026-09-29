@@ -8,7 +8,14 @@ import type { SchemaTabelle } from './SchemaPanel';
 import { lektionen } from '@/lib/lektionen';
 import { migrations } from '@/lib/migrations';
 import { tasks } from '@/lib/tasks';
-import { dbFuerLevel, fuehreAus, schemaLesen, type RohErgebnis } from '@/lib/db';
+import {
+  abbrechen,
+  dbFuerLevel,
+  fehlerKopf,
+  fuehreAus,
+  schemaLesen,
+  type RohErgebnis,
+} from '@/lib/db';
 import { ladeGeloest } from '@/lib/fortschritt';
 
 const DEMO = `select brand, model, price
@@ -19,7 +26,7 @@ order by price;`;
 type Demo =
   | { art: 'nichts' }
   | { art: 'laeuft'; erstesMal: boolean }
-  | { art: 'fehler'; text: string }
+  | { art: 'fehler'; text: string; kopf: string }
   | { art: 'ergebnis'; daten: RohErgebnis };
 
 /**
@@ -73,7 +80,7 @@ export default function Landing() {
       // Ab jetzt kennt die Autovervollständigung im Demo-Editor die Tabellen.
       if (!schema.length) setSchema(await schemaLesen(db));
     } catch (f) {
-      setDemo({ art: 'fehler', text: (f as Error).message });
+      setDemo({ art: 'fehler', text: (f as Error).message, kopf: fehlerKopf(f) });
     }
   }, [sql, dbBereit, schema.length]);
 
@@ -179,6 +186,11 @@ export default function Landing() {
                   : 'Läuft …'
                 : 'Ausführen'}
             </button>
+            {demo.art === 'laeuft' && (
+              <button className="knopf knopf-gefahr" onClick={abbrechen}>
+                Abbrechen
+              </button>
+            )}
             <span className="leise">Die Abfrage darfst du ändern.</span>
           </div>
 
@@ -186,7 +198,7 @@ export default function Landing() {
             <div className="verdikt" data-art="fehler" role="status">
               <span className="verdikt-zeichen mono">!</span>
               <div>
-                <div className="verdikt-kopf">Postgres nimmt die Query nicht an.</div>
+                <div className="verdikt-kopf">{demo.kopf}</div>
                 <pre>{demo.text}</pre>
               </div>
             </div>

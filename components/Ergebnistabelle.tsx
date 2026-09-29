@@ -1,6 +1,6 @@
 'use client';
 
-import type { QueryResult, TabellenMarkierung } from '@/lib/compare';
+import { zeilenAnzahl, type QueryResult, type TabellenMarkierung } from '@/lib/compare';
 
 function istZahl(v: unknown) {
   if (typeof v === 'number' || typeof v === 'bigint') return true;
@@ -32,6 +32,7 @@ type Props = {
 export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, markierung }: Props) {
   const { felder, zeilen } = ergebnis;
   const sichtbar = zeilen.slice(0, maxZeilen);
+  const gesamt = zeilenAnzahl(ergebnis);
   const gegenseite = markierung?.ton === 'ist' ? 'Erwartet' : 'Deins';
 
   return (
@@ -39,7 +40,7 @@ export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, mark
       <div className="kappe">
         <span>{titel}</span>
         <span className="zaehlung">
-          {zeilen.length} {zeilen.length === 1 ? 'Zeile' : 'Zeilen'} · {felder.length}{' '}
+          {gesamt.toLocaleString('de-DE')} {gesamt === 1 ? 'Zeile' : 'Zeilen'} · {felder.length}{' '}
           {felder.length === 1 ? 'Spalte' : 'Spalten'}
         </span>
       </div>
@@ -105,9 +106,10 @@ export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, mark
               })}
             </tbody>
           </table>
-          {zeilen.length > sichtbar.length && (
+          {gesamt > sichtbar.length && (
             <p className="leer">
-              … {zeilen.length - sichtbar.length} weitere Zeilen werden nicht angezeigt.
+              … {(gesamt - sichtbar.length).toLocaleString('de-DE')} weitere Zeilen werden
+              nicht angezeigt.
             </p>
           )}
         </div>
