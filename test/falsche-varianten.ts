@@ -63,7 +63,6 @@ export const falscheVarianten: FalscheVariante[] = [
     aufgabe: 'a39',
     fehler: 'Muster ohne Anker am Anfang',
     sql: "select brand, model from cars where model like '%A%' order by model",
-    luecke: 'Kein Modell hat ein großes A mitten im Namen.',
   },
   {
     aufgabe: 'a40',
@@ -225,7 +224,6 @@ export const falscheVarianten: FalscheVariante[] = [
     fehler: 'count(*) zählt Mehrfacherfassungen mit',
     sql: `select source, count(*) from leads group by source
           order by count(*) desc, source`,
-    luecke: 'Keine Person steht zweimal in derselben Quelle.',
   },
   {
     aufgabe: 'a24',

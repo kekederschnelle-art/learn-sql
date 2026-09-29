@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 /**
  * Umschalter zwischen hellem und dunklem Farbschema.
  *
- * Ohne Wahl folgt die Seite dem System (prefers-color-scheme). Wer umschaltet,
- * legt sich fest: Die Wahl steht als data-theme auf <html> und im
+ * Standard ist dunkel, egal was das System eingestellt hat. Wer auf hell
+ * umschaltet, bekommt data-theme="light" auf <html>, und die Wahl landet im
  * localStorage. Das Skript in app/layout.tsx liest sie vor dem ersten
  * Zeichnen, damit die Seite nicht erst dunkel aufblitzt.
  */
@@ -14,10 +14,7 @@ import { useEffect, useState } from 'react';
 export const THEMA_SCHLUESSEL = 'sql-pruefstand:thema';
 
 function istHell(): boolean {
-  const gewaehlt = document.documentElement.dataset.theme;
-  if (gewaehlt === 'light') return true;
-  if (gewaehlt === 'dark') return false;
-  return window.matchMedia('(prefers-color-scheme: light)').matches;
+  return document.documentElement.dataset.theme === 'light';
 }
 
 export default function ThemaSchalter() {
@@ -25,13 +22,7 @@ export default function ThemaSchalter() {
   // Schema unbekannt, und ein falsches Symbol wuerde kurz aufblitzen.
   const [hell, setHell] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    setHell(istHell());
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const folgen = () => setHell(istHell());
-    mq.addEventListener('change', folgen);
-    return () => mq.removeEventListener('change', folgen);
-  }, []);
+  useEffect(() => setHell(istHell()), []);
 
   function umschalten() {
     const neu = istHell() ? 'dark' : 'light';

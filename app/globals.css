@@ -4,9 +4,9 @@
   Aktionen und zwei Verdikt-Farben für richtig/falsch.
 
   Zwei Farbschemata, dieselben Variablen:
-    - dunkel ist der Standard,
-    - hell greift, wenn das System hell eingestellt ist und niemand etwas
-      anderes gewählt hat, oder wenn <html data-theme="light"> gesetzt ist.
+    - dunkel ist der Standard, unabhaengig von der Systemeinstellung,
+    - hell greift nur, wenn jemand es ausdruecklich waehlt
+      (<html data-theme="light">).
   Den Schalter setzt components/ThemaSchalter.tsx, das Skript in
   app/layout.tsx wendet die Wahl vor dem ersten Zeichnen an.
 
@@ -79,8 +79,7 @@
   --schema: 280px;
 }
 
-/* Helles Schema. Zweimal dieselben Werte: einmal fuer die ausdrueckliche
-   Wahl, einmal fuer "System ist hell, keine Wahl getroffen". */
+/* Helles Schema, nur auf ausdrueckliche Wahl. */
 :root[data-theme='light'] {
   color-scheme: light;
 
@@ -133,62 +132,6 @@
   --code-klammer: #e3dfcf;
   --code-klammer-kante: #b4b0a1;
   --code-zeile: rgba(0, 0, 0, 0.03);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-
-    --grund: #f2f0e9;
-    --flaeche: #fbfaf6;
-    --flaeche-hoch: #e9e7de;
-    --kante: #d5d2c6;
-    --kante-hell: #b4b0a1;
-
-    --text: #18221e;
-    --text-weich: #2c3833;
-    --gedaempft: #4c5d55;
-    --leise: #56665e;
-
-    --signal: #845a00;
-    --signal-flaeche: #e6b422;
-    --signal-hell: #f0c23a;
-    --auf-signal: #20180a;
-    --signal-tief: #f7ebc4;
-    --korrekt: #216b3e;
-    --korrekt-tief: #dcefe2;
-    --korrekt-text: #1d3a29;
-    --falsch: #b23c1f;
-    --falsch-tief: #f8e1d9;
-    --falsch-text: #5a2415;
-
-    --hauch: rgba(0, 0, 0, 0.025);
-    --schatten: rgba(40, 35, 20, 0.14);
-
-    --abw-ist: rgba(217, 105, 76, 0.22);
-    --abw-ist-kante: #b23c1f;
-    --abw-ist-text: #5a1d0e;
-    --abw-soll: rgba(56, 150, 92, 0.2);
-    --abw-soll-kante: #257a47;
-    --abw-soll-text: #123a22;
-    --abw-verschoben: rgba(230, 180, 34, 0.25);
-
-    --code-schluesselwort: #8a5a00;
-    --code-text: #1b6f3a;
-    --code-zahl: #1d5fa3;
-    --code-wert: #b0421f;
-    --code-typ: #6c3fb4;
-    --code-funktion: #0f716c;
-    --code-kommentar: #57665e;
-    --code-zeichen: #3c4843;
-    --code-name: #18221e;
-    --code-cursor: #18221e;
-    --code-markierung: #b9d4f0;
-    --code-markierung-leise: #d6e3f0;
-    --code-klammer: #e3dfcf;
-    --code-klammer-kante: #b4b0a1;
-    --code-zeile: rgba(0, 0, 0, 0.03);
-  }
 }
 
 * {

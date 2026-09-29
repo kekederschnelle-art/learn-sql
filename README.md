@@ -158,10 +158,10 @@ zusammengelegt. Der Prüfungslog speichert nur Ergebnisse, keine Eingaben.
 ### Farbschema
 
 Dunkel und hell, beide über dieselben CSS-Variablen in `app/globals.css`.
-Ohne Wahl folgt die Seite dem System. Der Schalter oben rechts
-(`components/ThemaSchalter.tsx`) legt sich fest und merkt sich das im
-localStorage; ein kleines Skript in `app/layout.tsx` wendet die Wahl vor dem
-ersten Zeichnen an.
+Standard ist dunkel, unabhängig von der Systemeinstellung. Der Schalter oben
+rechts (`components/ThemaSchalter.tsx`) wechselt auf hell und merkt sich das
+im localStorage; ein kleines Skript in `app/layout.tsx` wendet die Wahl vor
+dem ersten Zeichnen an.
 
 Beim Stylen gilt: **keine Farbe fest in eine Regel schreiben**, immer eine
 Variable aus dem `:root`-Block – sonst stimmt sie nur in einem der beiden
@@ -252,8 +252,9 @@ Tests und Build bei jedem Push auf `main` und bei jedem Pull Request aus.
 | `test/logik.test.ts` | Vergleich, Transaktionssperre, Aufgabenauswahl der Prüfung |
 
 Eine falsche Variante, die trotzdem besteht, zeigt eine Lücke im Datensatz.
-Solche bekannten Lücken stehen mit `luecke: '…'` in der Liste und erscheinen
-im Testlauf als `todo`, statt ihn rot zu machen.
+Solche bekannten Lücken lassen sich mit `luecke: '…'` markieren; sie
+erscheinen dann im Testlauf als `todo`, statt ihn rot zu machen. Besser ist,
+den fehlenden Grenzfall in `lib/migrations.ts` zu ergänzen.
 
 ## Später, falls ihr es wollt
 
