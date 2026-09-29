@@ -443,7 +443,7 @@ export const lektionen: Lektion[] = [
         ],
         beispiel: 'select * from leads order by email;',
         beobachtung:
-          'Sechzehn Zeilen. Schau dir die E-Mail-Adressen genau an — wie viele verschiedene Personen sind das wirklich?',
+          'Siebzehn Zeilen. Schau dir die E-Mail-Adressen genau an — wie viele verschiedene Personen sind das wirklich?',
       },
       {
         titel: 'Erst normalisieren, dann vergleichen',
@@ -466,7 +466,7 @@ export const lektionen: Lektion[] = [
         beispiel:
           'select lower(trim(email)) as email,\n       count(*) as entries\nfrom leads\ngroup by lower(trim(email))\nhaving count(*) > 1\norder by entries desc;',
         beobachtung:
-          'Fünf Adressen kommen mehrfach vor. Gruppier zum Vergleich mal über `email` statt über den bereinigten Ausdruck — dann findet er fast nichts.',
+          'Sechs Adressen kommen mehrfach vor. Gruppier zum Vergleich mal über `email` statt über den bereinigten Ausdruck — dann findet er fast nichts.',
       },
       {
         titel: 'DISTINCT ON behält eine Zeile pro Gruppe',
@@ -477,7 +477,7 @@ export const lektionen: Lektion[] = [
         beispiel:
           'select distinct on (lower(trim(email)))\n       lower(trim(email)) as email,\n       name, source, captured_at\nfrom leads\norder by lower(trim(email)), captured_at asc;',
         beobachtung:
-          'Neun Zeilen statt sechzehn. Dreh `captured_at asc` auf `desc` — dann bekommst du den jeweils neuesten Eintrag.',
+          'Neun Zeilen statt siebzehn. Dreh `captured_at asc` auf `desc` — dann bekommst du den jeweils neuesten Eintrag.',
         falle:
           'Beginnt das `order by` nicht mit dem Ausdruck aus `distinct on`, lehnt Postgres die Abfrage ab. Und ohne ein zweites Sortierkriterium ist willkürlich, welche Zeile überlebt.',
       },

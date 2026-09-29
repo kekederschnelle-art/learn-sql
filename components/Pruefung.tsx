@@ -5,15 +5,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { tasks, type Task } from '@/lib/tasks';
 import { lektionFuerLevel } from '@/lib/lektionen';
 import { MAX_LEVEL } from '@/lib/migrations';
 import {
+  abbrechen,
   dbFuerLevel,
+  fehlerKopf,
   fuehreAus,
   fuehreAusUndLiesZustand,
   schemaLesen,
-  TransaktionsFehler,
   type RohErgebnis,
 } from '@/lib/db';
 import { vergleiche, type QueryResult, type VergleichsErgebnis } from '@/lib/compare';
@@ -59,6 +61,7 @@ type Probe =
 type Phase = 'konfig' | 'laeuft' | 'wertet' | 'fertig';
 
 const MARKE = { korrekt: '✓', falsch: '✗', leer: '–' } as const;
+const STAND_TEXT = { korrekt: 'richtig', falsch: 'falsch', leer: 'nicht bearbeitet' } as const;
 
 function standVon(e: Ergebnis): AufgabenStand['stand'] {
   if (e.urteil?.korrekt) return 'korrekt';
@@ -255,10 +258,7 @@ export default function Pruefung() {
     } catch (f) {
       setProbe({
         art: 'fehler',
-        kopf:
-          f instanceof TransaktionsFehler
-            ? 'Diese Anweisung ist in den Aufgaben gesperrt.'
-            : 'Postgres nimmt die Query nicht an.',
+        kopf: fehlerKopf(f),
         text: (f as Error).message,
       });
     }
@@ -276,11 +276,14 @@ export default function Pruefung() {
     const imBereich = verfuegbar(tasks, konfig.vonLevel, konfig.bisLevel);
     const stufen = Array.from({ length: MAX_LEVEL }, (_, i) => i + 1);
     return (
-      <div className="start">
+      <main className="start" id="inhalt">
         <header className="start-kopf">
-          <Link href="/lektionen" className="zurueck">
-            ← Übersicht
-          </Link>
+          <div className="start-leiste">
+            <Link href="/lektionen" className="zurueck">
+              ← Übersicht
+            </Link>
+            <ThemaSchalter />
+          </div>
           <h1>Prüfung</h1>
           <p className="lead">
             Zufällige Aufgaben quer über die Stufen. Keine Hinweise, keine Musterlösung,
@@ -457,7 +460,10 @@ export default function Pruefung() {
                                 {tasks.find((t) => t.id === e.id)?.titel ?? e.id}
                               </span>
                               <span className="mono leise">Stufe {e.level}</span>
-                              <span className="pruef-zeile-marke">{MARKE[e.stand]}</span>
+                              <span className="pruef-zeile-marke" aria-hidden="true">
+                                {MARKE[e.stand]}
+                              </span>
+                              <span className="sr-only">, {STAND_TEXT[e.stand]}</span>
                               {e.meldung && (
                                 <span className="pruef-log-grund leise">{e.meldung}</span>
                               )}
@@ -472,7 +478,7 @@ export default function Pruefung() {
             </ol>
           </section>
         )}
-      </div>
+      </main>
     );
   }
 
@@ -480,7 +486,7 @@ export default function Pruefung() {
 
   if (phase === 'wertet') {
     return (
-      <div className="start">
+      <main className="start" id="inhalt" aria-busy="true">
         <header className="start-kopf">
           <h1>Wird ausgewertet …</h1>
           <p className="lead leise">
@@ -488,7 +494,7 @@ export default function Pruefung() {
             dauert das einen Moment.
           </p>
         </header>
-      </div>
+      </main>
     );
   }
 
@@ -501,11 +507,14 @@ export default function Pruefung() {
     ].sort((a, b) => a - b);
 
     return (
-      <div className="start">
+      <main className="start" id="inhalt">
         <header className="start-kopf">
-          <Link href="/lektionen" className="zurueck">
-            ← Übersicht
-          </Link>
+          <div className="start-leiste">
+            <Link href="/lektionen" className="zurueck">
+              ← Übersicht
+            </Link>
+            <ThemaSchalter />
+          </div>
           <h1>Auswertung</h1>
         </header>
 
@@ -550,7 +559,10 @@ export default function Pruefung() {
                     </span>
                     <span className="pruef-zeile-titel">{e.task.titel}</span>
                     <span className="mono leise">Stufe {e.task.level}</span>
-                    <span className="pruef-zeile-marke">{MARKE[zustand]}</span>
+                    <span className="pruef-zeile-marke" aria-hidden="true">
+                      {MARKE[zustand]}
+                    </span>
+                    <span className="sr-only">, {STAND_TEXT[zustand]}</span>
                   </summary>
 
                   <div className="pruef-zeile-inhalt">
@@ -560,7 +572,7 @@ export default function Pruefung() {
 
                     {e.fehler && (
                       <div className="verdikt" data-art="fehler">
-                        <span className="verdikt-zeichen mono">!</span>
+                        <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
                         <div>
                           <div className="verdikt-kopf">Die Query lief nicht durch.</div>
                           <pre>{e.fehler}</pre>
@@ -573,7 +585,7 @@ export default function Pruefung() {
                         className="verdikt"
                         data-art={e.urteil.korrekt ? 'korrekt' : 'falsch'}
                       >
-                        <span className="verdikt-zeichen mono">
+                        <span className="verdikt-zeichen mono" aria-hidden="true">
                           {e.urteil.korrekt ? '✓' : '✗'}
                         </span>
                         <div>
@@ -624,7 +636,7 @@ export default function Pruefung() {
             Zur Übersicht
           </Link>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -649,7 +661,7 @@ export default function Pruefung() {
         </h1>
         <div className="kopf-werkzeuge">
           {restSekunden !== null && (
-            <span className="uhr mono" data-knapp={knapp}>
+            <span className="uhr mono" data-knapp={knapp} role="timer" aria-label="Restzeit">
               {alsUhrzeit(restSekunden)}
             </span>
           )}
@@ -657,6 +669,7 @@ export default function Pruefung() {
           <button className="knopf" onClick={abgeben}>
             Abgeben
           </button>
+          <ThemaSchalter />
         </div>
       </header>
 
@@ -678,18 +691,24 @@ export default function Pruefung() {
             key={t.id}
             className="aufgabe-knopf"
             data-aktiv={i === aktiv}
+            aria-current={i === aktiv ? 'step' : undefined}
             onClick={() => setAktiv(i)}
           >
             <span className="zahl mono">{String(i + 1).padStart(2, '0')}</span>
             <span className="titel">{t.titel}</span>
             <span className="haken">
-              {(antworten[t.id] ?? '').replace(/--[^\n]*/g, '').trim() ? '•' : ''}
+              {(antworten[t.id] ?? '').replace(/--[^\n]*/g, '').trim() && (
+                <>
+                  <span aria-hidden="true">•</span>
+                  <span className="sr-only">, bearbeitet</span>
+                </>
+              )}
             </span>
           </button>
         ))}
       </nav>
 
-      <main className="buehne">
+      <main className="buehne" id="inhalt">
         <div className="aufgabenkopf">
           <div className="marke mono">
             Stufe {aufgabe.level} · {lektionFuerLevel(aufgabe.level)?.titel}
@@ -712,6 +731,7 @@ export default function Pruefung() {
           onChange={setSql}
           onAusfuehren={nurAusfuehrenStabil}
           schema={datenstandBereit ? schema : []}
+          beschriftung={`SQL für Prüfungsaufgabe ${aktiv + 1}: ${aufgabe.titel}`}
         />
 
         <div className="steuerung">
@@ -726,6 +746,11 @@ export default function Pruefung() {
                 ? 'Ausführen'
                 : 'Datenstand wird gebaut …'}
           </button>
+          {probe.art === 'laeuft' && (
+            <button className="knopf knopf-gefahr" onClick={abbrechen}>
+              Abbrechen
+            </button>
+          )}
           <button
             className="knopf"
             onClick={() => setAktiv((i) => Math.max(0, i - 1))}
@@ -745,7 +770,7 @@ export default function Pruefung() {
 
         {probe.art === 'fehler' && (
           <div className="verdikt" data-art="fehler" role="status">
-            <span className="verdikt-zeichen mono">!</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
             <div>
               <div className="verdikt-kopf">{probe.kopf}</div>
               <pre>{probe.text}</pre>
@@ -755,7 +780,7 @@ export default function Pruefung() {
 
         {probe.art === 'ergebnis' && probe.daten.felder.length === 0 && (
           <div className="verdikt" data-art="neutral" role="status">
-            <span className="verdikt-zeichen mono">›</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">›</span>
             <div>
               <div className="verdikt-kopf">
                 {probe.daten.anweisungen === 1

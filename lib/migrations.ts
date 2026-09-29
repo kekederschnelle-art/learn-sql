@@ -42,7 +42,9 @@ insert into cars (brand, model, year, mileage, price, color, transmission) value
   ('BMW',        '520d G30',      2020,  62100,  27400.00, 'black',  'automatic'),
   ('Mercedes',   'C 200 W205',    2018,  88700,  21300.00, 'silver',   'automatic'),
   ('Mercedes',   'A 180 W177',    2021,  33900,  24950.00, 'red',      'automatic'),
-  ('Mercedes',   'E 220d W213',   2017, 145200,  17800.00, 'black',  'automatic'),
+  -- Absicht: ein grosses A mitten im Modellnamen, damit like '%A%' etwas
+  -- anderes findet als like 'A%'.
+  ('Mercedes',   'GLA 200 X156',  2017, 145200,  17800.00, 'black',  'automatic'),
   ('Audi',       'A3 8V',         2016, 132600,   9950.00, 'white',    'manual'),
   ('Audi',       'A4 B9',         2019, 101400,  19600.00, 'gray',     'automatic'),
   ('Audi',       'Q3 F3',         2021,  38800,  29900.00, 'blue',     'automatic'),
@@ -250,6 +252,9 @@ insert into leads (email, name, source, captured_at) values
   ('t.krueger@gmx.net',        'Tobias Krueger',  'website',   '2025-01-28 14:33:00'),
   ('T.KRUEGER@GMX.NET',        NULL,              'trade_fair',     '2025-04-11 10:05:00'),
   ('miriam.seidel@posteo.de',  'Miriam Seidel',   'website',   '2025-02-17 08:50:00'),
+  -- Absicht: dieselbe Person zweimal aus DERSELBEN Quelle, damit count(*)
+  -- pro Quelle etwas anderes liefert als count(distinct ...).
+  ('Miriam.Seidel@posteo.de',  'Miriam Seidel',   'website',   '2025-08-05 10:31:00'),
   ('jonas.brandt@icloud.com',  'Jonas Brandt',    'phone',   '2025-03-02 16:20:00'),
   ('jonas.brandt@icloud.com',  'Jonas Brandt',    'website',   '2025-03-02 16:24:00'),
   ('aylin.yildiz@web.de',      'Aylin Yildiz',    'trade_fair',     '2025-03-29 12:11:00'),

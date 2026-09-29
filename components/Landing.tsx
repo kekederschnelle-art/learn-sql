@@ -5,10 +5,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import type { SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { lektionen } from '@/lib/lektionen';
 import { migrations } from '@/lib/migrations';
 import { tasks } from '@/lib/tasks';
-import { dbFuerLevel, fuehreAus, schemaLesen, type RohErgebnis } from '@/lib/db';
+import {
+  abbrechen,
+  dbFuerLevel,
+  fehlerKopf,
+  fuehreAus,
+  schemaLesen,
+  type RohErgebnis,
+} from '@/lib/db';
 import { ladeGeloest } from '@/lib/fortschritt';
 
 const DEMO = `select brand, model, price
@@ -19,7 +27,7 @@ order by price;`;
 type Demo =
   | { art: 'nichts' }
   | { art: 'laeuft'; erstesMal: boolean }
-  | { art: 'fehler'; text: string }
+  | { art: 'fehler'; text: string; kopf: string }
   | { art: 'ergebnis'; daten: RohErgebnis };
 
 /**
@@ -73,7 +81,7 @@ export default function Landing() {
       // Ab jetzt kennt die Autovervollständigung im Demo-Editor die Tabellen.
       if (!schema.length) setSchema(await schemaLesen(db));
     } catch (f) {
-      setDemo({ art: 'fehler', text: (f as Error).message });
+      setDemo({ art: 'fehler', text: (f as Error).message, kopf: fehlerKopf(f) });
     }
   }, [sql, dbBereit, schema.length]);
 
@@ -81,7 +89,7 @@ export default function Landing() {
 
   return (
     <div className="landing">
-      <nav className="land-nav">
+      <nav className="land-nav" aria-label="Hauptnavigation">
         <Link href="/" className="land-logo">
           SQL-Prüfstand
         </Link>
@@ -89,17 +97,19 @@ export default function Landing() {
           <Link href="/lektionen">Lektionen</Link>
           <Link href="/pruefung">Prüfung</Link>
           <Link href="/frei">Freier Modus</Link>
+          <Link href="/spickzettel">Spickzettel</Link>
           <Link
             href={weiter ? `/uebung/${weiter}` : '/lektion/1'}
             className="knopf knopf-primaer"
           >
             {weiter ? 'Weitermachen' : 'Loslegen'}
           </Link>
+          <ThemaSchalter />
         </div>
       </nav>
 
       {/* ───────────────────────────────────────────────────────── Hero ── */}
-      <header className="land-hero">
+      <header className="land-hero" id="inhalt">
         <div className="land-hero-text">
           <p className="land-eyebrow mono">Ein Datensatz · {stufen.length} Stufen</p>
           <h1>
@@ -166,6 +176,7 @@ export default function Landing() {
             onChange={setSql}
             onAusfuehren={ausfuehren}
             schema={schema}
+            beschriftung="SQL zum Ausprobieren"
           />
           <div className="land-demo-fuss">
             <button
@@ -179,14 +190,19 @@ export default function Landing() {
                   : 'Läuft …'
                 : 'Ausführen'}
             </button>
+            {demo.art === 'laeuft' && (
+              <button className="knopf knopf-gefahr" onClick={abbrechen}>
+                Abbrechen
+              </button>
+            )}
             <span className="leise">Die Abfrage darfst du ändern.</span>
           </div>
 
           {demo.art === 'fehler' && (
             <div className="verdikt" data-art="fehler" role="status">
-              <span className="verdikt-zeichen mono">!</span>
+              <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
               <div>
-                <div className="verdikt-kopf">Postgres nimmt die Query nicht an.</div>
+                <div className="verdikt-kopf">{demo.kopf}</div>
                 <pre>{demo.text}</pre>
               </div>
             </div>
@@ -277,7 +293,7 @@ export default function Landing() {
               erfährst du, was genau nicht stimmt.
             </p>
             <div className="ablauf-probe verdikt" data-art="falsch">
-              <span className="verdikt-zeichen mono">✗</span>
+              <span className="verdikt-zeichen mono" aria-hidden="true">✗</span>
               <div>
                 <div className="verdikt-kopf">Richtige Daten, falsche Sortierung.</div>
                 <ul>

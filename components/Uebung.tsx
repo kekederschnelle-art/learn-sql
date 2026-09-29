@@ -5,15 +5,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { tasks, type Task } from '@/lib/tasks';
 import { lektionFuerLevel } from '@/lib/lektionen';
 import { migrations } from '@/lib/migrations';
 import {
+  abbrechen,
   dbFuerLevel,
+  fehlerKopf,
   fuehreAus,
   fuehreAusUndLiesZustand,
   schemaLesen,
-  TransaktionsFehler,
   type RohErgebnis,
 } from '@/lib/db';
 import {
@@ -44,8 +46,6 @@ type Lauf =
     };
 
 const START_SQL = '-- Deine Query hier\n';
-
-const FEHLER_KOPF = 'Postgres nimmt die Query nicht an.';
 
 export default function Uebung({ level }: { level: number }) {
   const stufenTasks = useMemo(() => tasks.filter((t) => t.level === level), [level]);
@@ -115,11 +115,7 @@ export default function Uebung({ level }: { level: number }) {
   const hatInhalt = !!sql.replace(/--[^\n]*/g, '').trim();
 
   const fehlerAnzeigen = useCallback((f: unknown) => {
-    const kopf =
-      f instanceof TransaktionsFehler
-        ? 'Diese Anweisung ist in den Aufgaben gesperrt.'
-        : FEHLER_KOPF;
-    setLauf({ art: 'sqlfehler', text: (f as Error).message, kopf });
+    setLauf({ art: 'sqlfehler', text: (f as Error).message, kopf: fehlerKopf(f) });
   }, []);
 
   const pruefen = useCallback(async () => {
@@ -213,6 +209,7 @@ export default function Uebung({ level }: { level: number }) {
         <span className="stand mono">
           {fertig} / {stufenTasks.length} gelöst
         </span>
+        <ThemaSchalter />
       </header>
 
       <nav className="rail" aria-label="Aufgaben dieser Stufe">
@@ -229,11 +226,19 @@ export default function Uebung({ level }: { level: number }) {
             key={t.id}
             className="aufgabe-knopf"
             data-aktiv={t.id === aufgabe.id}
+            aria-current={t.id === aufgabe.id ? 'step' : undefined}
             onClick={() => setAktiveId(t.id)}
           >
             <span className="zahl mono">{String(i + 1).padStart(2, '0')}</span>
             <span className="titel">{t.titel}</span>
-            <span className="haken">{geloest.includes(t.id) ? '✓' : ''}</span>
+            <span className="haken">
+              {geloest.includes(t.id) && (
+                <>
+                  <span aria-hidden="true">✓</span>
+                  <span className="sr-only">, gelöst</span>
+                </>
+              )}
+            </span>
           </button>
         ))}
 
@@ -249,7 +254,7 @@ export default function Uebung({ level }: { level: number }) {
         </div>
       </nav>
 
-      <main className="buehne">
+      <main className="buehne" id="inhalt">
         <div className="aufgabenkopf">
           <div className="marke mono">
             Aufgabe {nummerInStufe} von {stufenTasks.length}
@@ -273,6 +278,7 @@ export default function Uebung({ level }: { level: number }) {
           onAusfuehren={pruefenStabil}
           onNurAusfuehren={nurAusfuehrenStabil}
           schema={schema}
+          beschriftung={`SQL für Aufgabe: ${aufgabe.titel}`}
         />
 
         <div className="steuerung">
@@ -292,6 +298,12 @@ export default function Uebung({ level }: { level: number }) {
           >
             Nur ausführen
           </button>
+
+          {lauf.art === 'laeuft' && (
+            <button className="knopf knopf-gefahr" onClick={abbrechen}>
+              Abbrechen
+            </button>
+          )}
 
           <button
             className="knopf"
@@ -313,7 +325,7 @@ export default function Uebung({ level }: { level: number }) {
         </div>
 
         {hinweiseOffen > 0 && (
-          <div className="hinweisliste">
+          <div className="hinweisliste" aria-live="polite">
             {aufgabe.hinweise.slice(0, hinweiseOffen).map((h, i) => (
               <p key={i}>
                 <span className="zaehler mono">{i + 1}. </span>
@@ -325,7 +337,7 @@ export default function Uebung({ level }: { level: number }) {
 
         {lauf.art === 'sqlfehler' && (
           <div className="verdikt" data-art="fehler" role="status">
-            <span className="verdikt-zeichen mono">!</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
             <div>
               <div className="verdikt-kopf">{lauf.kopf}</div>
               <pre>{lauf.text}</pre>
@@ -335,7 +347,7 @@ export default function Uebung({ level }: { level: number }) {
 
         {lauf.art === 'roh' && (
           <div className="verdikt" data-art="neutral" role="status">
-            <span className="verdikt-zeichen mono">›</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">›</span>
             <div>
               <div className="verdikt-kopf">
                 Ausgeführt, nicht geprüft.
@@ -359,7 +371,7 @@ export default function Uebung({ level }: { level: number }) {
             data-art={lauf.urteil.korrekt ? 'korrekt' : 'falsch'}
             role="status"
           >
-            <span className="verdikt-zeichen mono">
+            <span className="verdikt-zeichen mono" aria-hidden="true">
               {lauf.urteil.korrekt ? '✓' : '✗'}
             </span>
             <div>

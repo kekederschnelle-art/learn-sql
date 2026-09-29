@@ -5,9 +5,13 @@ import { useCallback, useEffect, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { migrations, MAX_LEVEL } from '@/lib/migrations';
 import {
+  AbbruchFehler,
+  abbrechen,
   dbFuerLevel,
+  fehlerKopf,
   dbZuruecksetzen,
   fuehreAusOhneRollback,
   schemaLesen,
@@ -17,7 +21,7 @@ import {
 type Ausgabe =
   | { art: 'nichts' }
   | { art: 'laeuft' }
-  | { art: 'fehler'; text: string }
+  | { art: 'fehler'; text: string; kopf: string }
   | { art: 'ergebnis'; daten: RohErgebnis };
 
 const START = `-- Freier Modus: hier bleiben Änderungen bestehen.
@@ -73,8 +77,20 @@ export default function Frei() {
       // Ein CREATE oder DROP verändert das Schema - Panel neu einlesen.
       await schemaAuffrischen();
     } catch (f) {
-      setAusgabe({ art: 'fehler', text: (f as Error).message });
-      setVeraendert(true);
+      if (f instanceof AbbruchFehler) {
+        // Der Worker wurde neu gestartet, die freie Instanz ist frisch gebaut.
+        setAusgabe({
+          art: 'fehler',
+          kopf: fehlerKopf(f),
+          text:
+            f.message +
+            '\nDer Datenstand wurde dabei frisch aufgebaut – deine Änderungen im freien Modus sind weg.',
+        });
+        setVeraendert(false);
+      } else {
+        setAusgabe({ art: 'fehler', text: (f as Error).message, kopf: fehlerKopf(f) });
+        setVeraendert(true);
+      }
       await schemaAuffrischen();
     }
   }, [sql, level, schemaAuffrischen]);
@@ -115,11 +131,12 @@ export default function Frei() {
           <button className="knopf" onClick={zuruecksetzen} disabled={baut}>
             {baut ? 'Baut …' : 'Zurücksetzen'}
           </button>
+          <ThemaSchalter />
         </div>
       </header>
 
-      <main className="buehne">
-        <div className="frei-hinweis" data-veraendert={veraendert}>
+      <main className="buehne" id="inhalt">
+        <div className="frei-hinweis" data-veraendert={veraendert} aria-live="polite">
           <p>
             Was du hier ausführst, <strong>bleibt bestehen</strong> — anders als in den
             Aufgaben. Du kannst Daten ändern, Tabellen anlegen und auch löschen.
@@ -138,6 +155,7 @@ export default function Frei() {
           onChange={setSql}
           onAusfuehren={ausfuehren}
           schema={schema}
+          beschriftung="SQL im freien Modus"
         />
 
         <div className="steuerung">
@@ -148,14 +166,19 @@ export default function Frei() {
           >
             {ausgabe.art === 'laeuft' ? 'Läuft …' : 'Ausführen'}
           </button>
+          {ausgabe.art === 'laeuft' && (
+            <button className="knopf knopf-gefahr" onClick={abbrechen}>
+              Abbrechen
+            </button>
+          )}
           <span className="tastenhinweis mono">⌘/Strg + ⏎</span>
         </div>
 
         {ausgabe.art === 'fehler' && (
           <div className="verdikt" data-art="fehler" role="status">
-            <span className="verdikt-zeichen mono">!</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
             <div>
-              <div className="verdikt-kopf">Postgres nimmt die Query nicht an.</div>
+              <div className="verdikt-kopf">{ausgabe.kopf}</div>
               <pre>{ausgabe.text}</pre>
             </div>
           </div>
@@ -170,7 +193,7 @@ export default function Frei() {
             />
           ) : (
             <div className="verdikt" data-art="korrekt" role="status">
-              <span className="verdikt-zeichen mono">✓</span>
+              <span className="verdikt-zeichen mono" aria-hidden="true">✓</span>
               <div>
                 <div className="verdikt-kopf">
                   {ausgabe.daten.anweisungen === 1

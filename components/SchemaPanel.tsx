@@ -13,7 +13,7 @@ export default function SchemaPanel({
   level: number;
 }) {
   return (
-    <aside className="schema">
+    <aside className="schema" aria-label="Tabellen und Spalten">
       <h3>Datenstand auf Level {level}</h3>
       <p className="erklaerung">
         Genau diese Tabellen existieren gerade. Mit jedem Level kommen Tabellen oder
@@ -30,7 +30,10 @@ export default function SchemaPanel({
             {t.spalten.map((s) => (
               <li key={s.spalte} data-nullbar={s.nullbar}>
                 <span>{s.spalte}</span>
-                <span className="typ">{s.typ}</span>
+                <span className="typ">
+                  {s.typ}
+                  {s.nullbar && <span className="sr-only">, kann NULL sein</span>}
+                </span>
               </li>
             ))}
           </ul>

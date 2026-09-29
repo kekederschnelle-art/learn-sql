@@ -23,17 +23,29 @@ const CodeMirror = dynamic(() => import('@uiw/react-codemirror'), {
  *
  * Jetzt: eigenes HighlightStyle, direkt als Extension. Alle Farben sind auf
  * #1e2a26 (Editorhintergrund) auf Kontrast von mindestens 4.5:1 gewaehlt.
+ *
+ * V8: Die Farben stehen als CSS-Variablen in app/globals.css, einmal fuer
+ * das dunkle und einmal fuer das helle Schema. CodeMirror schreibt die
+ * Werte nur in sein Stylesheet, var() funktioniert dort wie ueberall.
  */
 const farben = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.modifier], color: '#f0c24a', fontWeight: '500' },
-  { tag: [t.string, t.special(t.string)], color: '#9ee0b3' },
-  { tag: [t.number, t.integer, t.float], color: '#a9d4f5' },
-  { tag: [t.bool, t.null, t.atom], color: '#f2a58e' },
-  { tag: [t.typeName, t.standard(t.name)], color: '#d4b8ff' },
-  { tag: [t.function(t.name), t.function(t.variableName)], color: '#7fd4d0' },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: '#8ea398', fontStyle: 'italic' },
-  { tag: [t.operator, t.punctuation, t.separator, t.bracket], color: '#cfd8d1' },
-  { tag: [t.name, t.variableName, t.propertyName], color: '#e6eae5' },
+  {
+    tag: [t.keyword, t.operatorKeyword, t.modifier],
+    color: 'var(--code-schluesselwort)',
+    fontWeight: '500',
+  },
+  { tag: [t.string, t.special(t.string)], color: 'var(--code-text)' },
+  { tag: [t.number, t.integer, t.float], color: 'var(--code-zahl)' },
+  { tag: [t.bool, t.null, t.atom], color: 'var(--code-wert)' },
+  { tag: [t.typeName, t.standard(t.name)], color: 'var(--code-typ)' },
+  { tag: [t.function(t.name), t.function(t.variableName)], color: 'var(--code-funktion)' },
+  {
+    tag: [t.comment, t.lineComment, t.blockComment],
+    color: 'var(--code-kommentar)',
+    fontStyle: 'italic',
+  },
+  { tag: [t.operator, t.punctuation, t.separator, t.bracket], color: 'var(--code-zeichen)' },
+  { tag: [t.name, t.variableName, t.propertyName], color: 'var(--code-name)' },
 ]);
 
 /**
@@ -49,15 +61,15 @@ const farben = HighlightStyle.define([
  * Jetzt: exakt derselbe Selektor (gewinnt, weil unser Theme spaeter kommt)
  * und ein Blau, das sich klar vom Gruen abhebt. Text darauf bleibt lesbar.
  */
-const MARKIERUNG = '#2f5f8f';
-const MARKIERUNG_UNFOKUSSIERT = '#2a4660';
+const MARKIERUNG = 'var(--code-markierung)';
+const MARKIERUNG_UNFOKUSSIERT = 'var(--code-markierung-leise)';
 
 const rahmen = EditorView.theme(
   {
-    '&': { color: '#e6eae5', backgroundColor: 'transparent' },
-    '.cm-content': { caretColor: '#f0c24a', padding: '12px 0' },
+    '&': { color: 'var(--code-name)', backgroundColor: 'transparent' },
+    '.cm-content': { caretColor: 'var(--code-cursor)', padding: '12px 0' },
     '.cm-line': { padding: '0 14px' },
-    '&.cm-focused .cm-cursor': { borderLeftColor: '#f0c24a', borderLeftWidth: '2px' },
+    '&.cm-focused .cm-cursor': { borderLeftColor: 'var(--code-cursor)', borderLeftWidth: '2px' },
     '& > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
       background: MARKIERUNG_UNFOKUSSIERT,
     },
@@ -66,23 +78,26 @@ const rahmen = EditorView.theme(
     },
     '.cm-content ::selection': { backgroundColor: MARKIERUNG },
     '.cm-gutters': {
-      backgroundColor: '#1e2a26',
-      color: '#8ea398',
-      borderRight: '1px solid #33453e',
+      backgroundColor: 'var(--flaeche)',
+      color: 'var(--code-kommentar)',
+      borderRight: '1px solid var(--kante)',
     },
     // Die aktive Zeile liegt UEBER der Markierung. Deshalb nur ein Hauch,
     // sonst schluckt sie die Markierung in der Zeile, in der der Cursor steht.
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.025)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.03)', color: '#cfd8d1' },
-    '.cm-matchingBracket': { backgroundColor: '#3a4f47', outline: '1px solid #5b7369' },
+    '.cm-activeLine': { backgroundColor: 'var(--code-zeile)' },
+    '.cm-activeLineGutter': { backgroundColor: 'var(--code-zeile)', color: 'var(--code-zeichen)' },
+    '.cm-matchingBracket': {
+      backgroundColor: 'var(--code-klammer)',
+      outline: '1px solid var(--code-klammer-kante)',
+    },
     '.cm-tooltip': {
-      backgroundColor: '#26352f',
-      border: '1px solid #435a51',
-      color: '#e6eae5',
+      backgroundColor: 'var(--flaeche-hoch)',
+      border: '1px solid var(--kante-hell)',
+      color: 'var(--code-name)',
     },
     '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: '#3a4f47',
-      color: '#f0c24a',
+      backgroundColor: 'var(--code-klammer)',
+      color: 'var(--code-schluesselwort)',
     },
   },
   { dark: true },
@@ -103,6 +118,8 @@ type Props = {
   schema?: SchemaTabelle[];
   /** Hoehe des Editors. Laengere Queries brauchen mehr Platz. */
   hoehe?: string;
+  /** Wird vorgelesen, wenn der Editor den Fokus bekommt. */
+  beschriftung?: string;
 };
 
 export default function SqlEditor({
@@ -112,6 +129,7 @@ export default function SqlEditor({
   onNurAusfuehren,
   schema,
   hoehe = '180px',
+  beschriftung = 'SQL-Eingabe',
 }: Props) {
   // Die Extensions duerfen sich nicht bei jedem Tastendruck neu aufbauen.
   // Deshalb haengt der Memo an einer stabilen Kurzform des Schemas, nicht
@@ -165,9 +183,15 @@ export default function SqlEditor({
         syntaxHighlighting(farben),
         EditorView.lineWrapping,
         Prec.highest(keymap.of(tasten)),
+        // Das Eingabefeld von CodeMirror ist ein contenteditable ohne Namen.
+        // Screenreader sagten bisher nur "Textfeld".
+        EditorView.contentAttributes.of({
+          'aria-label': `${beschriftung}. Strg und Enter führt aus.`,
+          'aria-multiline': 'true',
+        }),
       ];
     },
-    [onAusfuehren, onNurAusfuehren, schemaSchluessel],
+    [onAusfuehren, onNurAusfuehren, schemaSchluessel, beschriftung],
   );
 
   return (

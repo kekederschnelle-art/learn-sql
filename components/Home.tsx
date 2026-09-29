@@ -14,6 +14,7 @@ import {
   sicherungHerunterladen,
   standEinlesen,
 } from '@/lib/fortschritt';
+import ThemaSchalter from './ThemaSchalter';
 
 export default function Home() {
   const [geloest, setGeloest] = useState<string[]>([]);
@@ -102,11 +103,14 @@ export default function Home() {
   }
 
   return (
-    <div className="start">
+    <main className="start" id="inhalt">
       <header className="start-kopf">
-        <Link href="/" className="zurueck">
-          ← Start
-        </Link>
+        <div className="start-leiste">
+          <Link href="/" className="zurueck">
+            ← Start
+          </Link>
+          <ThemaSchalter />
+        </div>
         <h1>Alle Stufen</h1>
         <p className="lead">
           SQL an einem Gebrauchtwagen-Marktplatz lernen. Neun Stufen, jede mit einer
@@ -144,6 +148,17 @@ export default function Home() {
             Editor öffnen
           </Link>
         </aside>
+
+        <aside className="frei-karte">
+          <h2>Spickzettel</h2>
+          <p>
+            Die Syntax aller Stufen auf einer Seite, jeweils mit einem Beispiel am
+            Datensatz. Zum Nachschlagen, wenn dir ein Schlüsselwort nicht einfällt.
+          </p>
+          <Link href="/spickzettel" className="knopf">
+            Spickzettel öffnen
+          </Link>
+        </aside>
       </div>
 
       {geladen && (
@@ -170,7 +185,11 @@ export default function Home() {
               <article className="karte" data-empfohlen={istEmpfehlung}>
                 <div className="karte-zeile">
                   <span className="karte-nr mono">Stufe {lektion.level}</span>
-                  {geladen && komplett && <span className="karte-haken">✓ durch</span>}
+                  {geladen && komplett && (
+                    <span className="karte-haken">
+                      <span aria-hidden="true">✓ </span>durch
+                    </span>
+                  )}
                   {istEmpfehlung && !komplett && (
                     <span className="karte-marke">hier weitermachen</span>
                   )}
@@ -242,6 +261,7 @@ export default function Home() {
                 accept="application/json,.json"
                 onChange={dateiGewaehlt}
                 hidden
+                aria-label="Sicherungsdatei auswählen"
               />
               {gesamtGeloest > 0 && !loeschenOffen && (
                 <button
@@ -299,13 +319,13 @@ export default function Home() {
             )}
 
             {meldung && (
-              <p className="sicherung-meldung" data-ton={meldung.ton}>
+              <p className="sicherung-meldung" data-ton={meldung.ton} role="status">
                 {meldung.text}
               </p>
             )}
           </div>
         </footer>
       )}
-    </div>
+    </main>
   );
 }
