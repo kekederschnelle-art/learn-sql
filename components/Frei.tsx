@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { migrations, MAX_LEVEL } from '@/lib/migrations';
 import {
   AbbruchFehler,
@@ -130,11 +131,12 @@ export default function Frei() {
           <button className="knopf" onClick={zuruecksetzen} disabled={baut}>
             {baut ? 'Baut …' : 'Zurücksetzen'}
           </button>
+          <ThemaSchalter />
         </div>
       </header>
 
-      <main className="buehne">
-        <div className="frei-hinweis" data-veraendert={veraendert}>
+      <main className="buehne" id="inhalt">
+        <div className="frei-hinweis" data-veraendert={veraendert} aria-live="polite">
           <p>
             Was du hier ausführst, <strong>bleibt bestehen</strong> — anders als in den
             Aufgaben. Du kannst Daten ändern, Tabellen anlegen und auch löschen.
@@ -153,6 +155,7 @@ export default function Frei() {
           onChange={setSql}
           onAusfuehren={ausfuehren}
           schema={schema}
+          beschriftung="SQL im freien Modus"
         />
 
         <div className="steuerung">
@@ -173,7 +176,7 @@ export default function Frei() {
 
         {ausgabe.art === 'fehler' && (
           <div className="verdikt" data-art="fehler" role="status">
-            <span className="verdikt-zeichen mono">!</span>
+            <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
             <div>
               <div className="verdikt-kopf">{ausgabe.kopf}</div>
               <pre>{ausgabe.text}</pre>
@@ -190,7 +193,7 @@ export default function Frei() {
             />
           ) : (
             <div className="verdikt" data-art="korrekt" role="status">
-              <span className="verdikt-zeichen mono">✓</span>
+              <span className="verdikt-zeichen mono" aria-hidden="true">✓</span>
               <div>
                 <div className="verdikt-kopf">
                   {ausgabe.daten.anweisungen === 1

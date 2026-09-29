@@ -54,11 +54,15 @@ export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, mark
       ) : (
         <div className="tabellenhuelle">
           <table className="ergebnis" data-ton={markierung?.ton}>
+            <caption className="sr-only">
+              {titel}, {gesamt} {gesamt === 1 ? 'Zeile' : 'Zeilen'}
+            </caption>
             <thead>
               <tr>
                 {felder.map((f, j) => (
                   <th
                     key={`${f}-${j}`}
+                    scope="col"
                     className={markierung?.spalten.has(j) ? 'abw-spalte' : undefined}
                   >
                     {f}
@@ -97,7 +101,16 @@ export default function Ergebnistabelle({ titel, ergebnis, maxZeilen = 200, mark
                               : undefined
                           }
                         >
+                          {j === 0 && zeilenArt && (
+                            <span className="sr-only">{ZEILEN_TITEL[zeilenArt]}: </span>
+                          )}
                           {zeige(wert)}
+                          {abw && (
+                            <span className="sr-only">
+                              {' '}
+                              (weicht ab, {gegenseite}: {zeige(markierung!.zellen.get(schluessel))})
+                            </span>
+                          )}
                         </td>
                       );
                     })}

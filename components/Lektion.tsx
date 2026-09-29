@@ -5,10 +5,12 @@ import { useCallback, useEffect, useState } from 'react';
 import SqlEditor from './SqlEditor';
 import Ergebnistabelle from './Ergebnistabelle';
 import SchemaPanel, { type SchemaTabelle } from './SchemaPanel';
+import ThemaSchalter from './ThemaSchalter';
 import { lektionFuerLevel } from '@/lib/lektionen';
 import { abbrechen, dbFuerLevel, fehlerKopf, fuehreAus, schemaLesen } from '@/lib/db';
 import type { QueryResult } from '@/lib/compare';
 import { ladeGelesen, speichereGelesen } from '@/lib/fortschritt';
+import { markiere } from '@/lib/markiere';
 
 type Ausgabe =
   | { art: 'nichts' }
@@ -89,9 +91,10 @@ export default function Lektion({ level }: { level: number }) {
         <span className="stand mono">
           {schritt + 1} / {lektion.abschnitte.length}
         </span>
+        <ThemaSchalter />
       </header>
 
-      <main className="buehne">
+      <main className="buehne" id="inhalt">
         <nav className="punkte" aria-label="Abschnitte">
           {lektion.abschnitte.map((a, i) => (
             <button
@@ -99,6 +102,7 @@ export default function Lektion({ level }: { level: number }) {
               className="punkt"
               data-zustand={i === schritt ? 'hier' : i < schritt ? 'durch' : 'offen'}
               onClick={() => setSchritt(i)}
+              aria-current={i === schritt ? 'step' : undefined}
               title={a.titel}
               aria-label={`Abschnitt ${i + 1}: ${a.titel}`}
             />
@@ -134,7 +138,12 @@ export default function Lektion({ level }: { level: number }) {
               )}
             </div>
 
-            <SqlEditor wert={sql} onChange={setSql} onAusfuehren={ausfuehren} />
+            <SqlEditor
+              wert={sql}
+              onChange={setSql}
+              onAusfuehren={ausfuehren}
+              beschriftung={`Beispiel-SQL: ${abschnitt.titel}`}
+            />
 
             <div className="steuerung">
               <button
@@ -160,7 +169,7 @@ export default function Lektion({ level }: { level: number }) {
 
             {ausgabe.art === 'fehler' && (
               <div className="verdikt" data-art="fehler" role="status">
-                <span className="verdikt-zeichen mono">!</span>
+                <span className="verdikt-zeichen mono" aria-hidden="true">!</span>
                 <div>
                   <div className="verdikt-kopf">{ausgabe.kopf}</div>
                   <pre>{ausgabe.text}</pre>
@@ -201,19 +210,4 @@ export default function Lektion({ level }: { level: number }) {
       <SchemaPanel tabellen={schema} level={level} />
     </div>
   );
-}
-
-/**
- * Sehr kleine Auszeichnung fuer den Lehrtext: `code` und **fett**.
- * Der Text stammt ausschliesslich aus lib/lektionen.ts, also aus dem Repo -
- * es fliesst nichts hier hinein, was ein Nutzer eingeben koennte.
- */
-function markiere(text: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
